@@ -2,6 +2,7 @@ import numpy as np
 from collections import deque
 from dataclasses import dataclass
 from typing import Optional
+from scipy.signal import butter, filtfilt
 
 EMA_ALPHA = 0.3        # BPM smoothing weight — lower is smoother, ~1s lag at 30fps
 CONF_WINDOW = 60       # sliding window length in compute() calls
@@ -57,25 +58,63 @@ class SignalProcessor:
         if buffer.ndim != 4 or len(buffer) < self.buffer_size:
             return HeartRateResult(bpm=0.0, confidence=0.0, status=STATUS_NO_SIGNAL)
 
-        fft_result = np.fft.fft(buffer, axis=0, n=self.buffer_size)
-        avg_spectrum = np.abs(fft_result).mean(axis=(1, 2, 3))
+        # Step 1: Compute spatial+channel mean → 1D signal
+        signal_1d = buffer.mean(axis=(1, 2, 3))
 
-        frequencies = (self.fps * np.arange(self.buffer_size)) / self.buffer_size
-        mask = (frequencies >= self.min_freq) & (frequencies <= self.max_freq)
+        # Step 2: Apply Butterworth bandpass to isolate cardiac frequencies
+        nyq = self.fps / 2.0
+        lo = self.min_freq / nyq
+        hi = self.max_freq / nyq
+        filtered = signal_1d.copy()
+        if 0 < lo < 1 and 0 < hi < 1 and lo < hi:
+            b, a = butter(2, [lo, hi], btype="band")
+            filtered = filtfilt(b, a, signal_1d)
 
-        bandpass = avg_spectrum.copy()
-        bandpass[~mask] = 0
-        peak_idx = int(np.argmax(bandpass))
-        peak_freq = frequencies[peak_idx]
-        raw_bpm = float(peak_freq * 60)
+        # Step 3: Zero-padded rfft for spectral interpolation (peak detection)
+        n_fft = max(self.buffer_size * 4, 512)
+        spectrum = np.fft.rfft(filtered, n=n_fft)
+        freqs = np.fft.rfftfreq(n_fft, d=1.0 / self.fps)
+        power = np.abs(spectrum)
 
-        peak_power = bandpass[peak_idx]
-        out_of_band = avg_spectrum[~mask]
+        # Step 4: Frequency mask
+        mask = (freqs >= self.min_freq) & (freqs <= self.max_freq)
+
+        # Step 5: Harmonic-weighted peak selection
+        masked_power = power * mask
+        candidates = np.argsort(masked_power)[-5:][::-1]
+        best_idx = candidates[0]
+        best_score = -1.0
+        for c_idx in candidates:
+            if masked_power[c_idx] == 0:
+                continue
+            f = freqs[c_idx]
+            # Find bin closest to 2*f (second harmonic)
+            h_idx = int(np.argmin(np.abs(freqs - 2 * f)))
+            harmonic_ratio = power[h_idx] / (power[c_idx] + 1e-10)
+            if harmonic_ratio >= 0.15:
+                score = power[c_idx] * 1.5
+            else:
+                score = power[c_idx]
+            if score > best_score:
+                best_score = score
+                best_idx = c_idx
+
+        peak_freq = float(freqs[best_idx])
+        raw_bpm = peak_freq * 60.0
+
+        # Step 6: SNR confidence — computed on unfiltered signal's coarse FFT to preserve
+        # broadband noise reference (avoids inflated SNR after bandpass filtering)
+        fft_raw = np.abs(np.fft.fft(signal_1d, n=self.buffer_size))
+        freqs_coarse = (self.fps * np.arange(self.buffer_size)) / self.buffer_size
+        mask_coarse = (freqs_coarse >= self.min_freq) & (freqs_coarse <= self.max_freq)
+        out_of_band = fft_raw[~mask_coarse]
         noise = float(out_of_band.mean()) if len(out_of_band) > 0 else 0.0
         noise = noise if noise > 0 else 1e-10
+        closest_idx = int(np.argmin(np.abs(freqs_coarse - peak_freq)))
+        peak_power = float(fft_raw[closest_idx])
         confidence = round(min(float(peak_power / noise) / 5.0, 1.0), 3)
 
-        # EMA smoothing — prevents BPM jumping by full FFT bin widths frame-to-frame
+        # Step 7: EMA smoothing — prevents BPM jumping by full FFT bin widths frame-to-frame
         if self._bpm_ema is None:
             self._bpm_ema = raw_bpm
         else:

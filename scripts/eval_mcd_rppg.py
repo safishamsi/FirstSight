@@ -121,8 +121,23 @@ def predict_bpm(video_path: Path) -> tuple[float | None, float]:
     for start in range(0, len(rgb_means) - BUFFER + 1, BUFFER // 3):
         window     = rgb_means[start:start + BUFFER]
         bvp        = _chrom_bvp(window, fps)
-        power      = np.abs(np.fft.rfft(bvp))
-        peak_idx   = int(np.argmax(power * mask))
+        power      = np.abs(np.fft.rfft(bvp)) ** 2
+        # Harmonic-weighted peak selection: top-5 candidates, boost if 2x harmonic present
+        masked_power = power * mask
+        candidates = np.argsort(masked_power)[-5:][::-1]
+        best_idx   = candidates[0]
+        best_score = -1.0
+        for c_idx in candidates:
+            if masked_power[c_idx] == 0:
+                continue
+            f = freqs[c_idx]
+            h_idx = int(np.argmin(np.abs(freqs - 2 * f)))
+            harmonic_ratio = power[h_idx] / (power[c_idx] + 1e-10)
+            score = power[c_idx] * 1.5 if harmonic_ratio >= 0.15 else power[c_idx]
+            if score > best_score:
+                best_score = score
+                best_idx   = c_idx
+        peak_idx   = best_idx
         peak_power = float(power[peak_idx])
         noise_bins = power[~mask]
         noise      = float(noise_bins.mean()) if noise_bins.size else 1e-10
