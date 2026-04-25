@@ -1,0 +1,7 @@
+weights/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+heart_rate_detection.zip
