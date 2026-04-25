@@ -1,11 +1,13 @@
 BACKEND_DIR := backend
 
-.PHONY: help backend-setup backend-dev backend-test backend-example backend-smoke-stream backend-clean
+.PHONY: help backend-setup backend-dev backend-stop backend-restart backend-test backend-example backend-smoke-stream backend-clean
 
 help:
 	@echo "Targets:"
 	@echo "  make backend-setup   Create the backend venv, install deps, and seed .env"
 	@echo "  make backend-dev     Run the FastAPI backend locally"
+	@echo "  make backend-stop    Stop the local FastAPI backend"
+	@echo "  make backend-restart Stop then run the FastAPI backend locally"
 	@echo "  make backend-test    Run backend tests"
 	@echo "  make backend-example Run the Vision Agents starter example"
 	@echo "  make backend-smoke-stream Run the mock client against a local backend"
@@ -16,6 +18,12 @@ backend-setup:
 
 backend-dev:
 	@$(MAKE) -C $(BACKEND_DIR) dev
+
+backend-stop:
+	@$(MAKE) -C $(BACKEND_DIR) stop
+
+backend-restart:
+	@$(MAKE) -C $(BACKEND_DIR) restart
 
 backend-test:
 	@$(MAKE) -C $(BACKEND_DIR) test

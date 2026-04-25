@@ -3,12 +3,14 @@ VENV ?= .venv
 PYTHON := $(VENV)/bin/python
 UVICORN := $(VENV)/bin/uvicorn
 
-.PHONY: help setup ensure-env dev test example smoke-stream clean
+.PHONY: help setup ensure-env dev stop restart test example smoke-stream clean
 
 help:
 	@echo "Targets:"
 	@echo "  make setup    Create the virtualenv, install deps, and seed .env"
 	@echo "  make dev      Run the FastAPI app with reload"
+	@echo "  make stop     Stop any local FastAPI backend on port 8000"
+	@echo "  make restart  Stop then run the FastAPI app with reload"
 	@echo "  make test     Run pytest"
 	@echo "  make example  Run the Vision Agents starter example"
 	@echo "  make smoke-stream  Run the mock streaming client against a local backend"
@@ -23,6 +25,11 @@ dev: ensure-env
 	@HOST=`$(PYTHON) -c 'from app.config import get_settings; print(get_settings().app_host)'`; \
 	PORT=`$(PYTHON) -c 'from app.config import get_settings; print(get_settings().app_port)'`; \
 	$(UVICORN) app.main:app --reload --host "$$HOST" --port "$$PORT"
+
+stop:
+	@pkill -f "uvicorn app.main:app|.venv/bin/uvicorn app.main:app|python .*app.main:app" || true
+
+restart: stop dev
 
 test: ensure-env
 	$(PYTHON) -m pytest tests
