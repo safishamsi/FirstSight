@@ -28,6 +28,15 @@ fun VisionAgentOverlay(
     ) {
         VisionAgentStatusBar(connectionState = uiState.connectionState)
 
+        if (uiState.transcriptHistory.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            val lastTurn = uiState.transcriptHistory.last()
+            TranscriptView(
+                userTranscript = lastTurn.userText,
+                aiTranscript = lastTurn.assistantText,
+            )
+        }
+
         if (uiState.userTranscript.isNotBlank() || uiState.assistantTranscript.isNotBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
             TranscriptView(

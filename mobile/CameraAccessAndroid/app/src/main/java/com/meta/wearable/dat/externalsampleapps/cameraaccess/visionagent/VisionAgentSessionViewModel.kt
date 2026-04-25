@@ -18,6 +18,11 @@ sealed class VisionAgentConnectionState {
     data class Error(val message: String) : VisionAgentConnectionState()
 }
 
+data class VisionAgentTranscriptTurn(
+    val userText: String,
+    val assistantText: String,
+)
+
 data class VisionAgentUiState(
     val isVisionAgentActive: Boolean = false,
     val connectionState: VisionAgentConnectionState = VisionAgentConnectionState.Disconnected,
@@ -32,6 +37,7 @@ data class VisionAgentUiState(
     val visionAgentError: String? = null,
     val userTranscript: String = "",
     val assistantTranscript: String = "",
+    val transcriptHistory: List<VisionAgentTranscriptTurn> = emptyList(),
 )
 
 class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(application) {
@@ -99,7 +105,20 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
             )
         }
         visionAgentService.onTurnComplete = {
-            _uiState.value = _uiState.value.copy(userTranscript = "")
+            val current = _uiState.value
+            val userText = current.userTranscript.trim()
+            val assistantText = current.assistantTranscript.trim()
+            if (userText.isEmpty() && assistantText.isEmpty()) {
+                return@onTurnComplete
+            }
+            val updatedHistory =
+                (current.transcriptHistory + VisionAgentTranscriptTurn(userText, assistantText))
+                    .takeLast(6)
+            _uiState.value = current.copy(
+                userTranscript = "",
+                assistantTranscript = "",
+                transcriptHistory = updatedHistory,
+            )
         }
         visionAgentService.onDisconnected = { reason ->
             if (_uiState.value.isVisionAgentActive) {
