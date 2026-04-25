@@ -20,6 +20,8 @@ type TranscriptTurn = {
   assistant_text: string;
 };
 
+type ViewerTheme = "light" | "dark";
+
 type SessionStatus = {
   session_id: string;
   provider: string;
@@ -63,6 +65,10 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(document.visibilityState === "visible");
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [theme, setTheme] = useState<ViewerTheme>(() => {
+    const stored = window.localStorage.getItem("viewer-theme");
+    return stored === "dark" ? "dark" : "light";
+  });
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -72,6 +78,10 @@ function App() {
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("viewer-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!isVisible) {
@@ -164,7 +174,7 @@ function App() {
   const zoomPercent = Math.round(zoomLevel * 100);
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell theme-${theme}`}>
       <div className="ambient-grid" />
 
       <section className="studio-shell">
@@ -181,6 +191,13 @@ function App() {
           </nav>
 
           <div className="studio-controls">
+            <button
+              className="theme-toggle"
+              type="button"
+              onClick={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+            >
+              {theme === "light" ? "Dark Mode" : "Light Mode"}
+            </button>
             <div className="control-block">
               <span>Backend</span>
               <input value={backendUrl} readOnly />
@@ -221,36 +238,6 @@ function App() {
                         : "Waiting for backend session"}
                   </p>
                 </div>
-              </div>
-            </section>
-
-            <section className="panel panel-tight">
-              <div className="section-title">
-                <span className="section-label">Sessions</span>
-                <strong>{sessions.length}</strong>
-              </div>
-              <div className="session-list">
-                {sessions.length ? (
-                  sessions.map((session) => (
-                    <button
-                      key={session.session_id}
-                      className={
-                        session.session_id === selectedSessionId
-                          ? "session-card session-card-active"
-                          : "session-card"
-                      }
-                      onClick={() => setSelectedSessionId(session.session_id)}
-                    >
-                      <div className="session-card-top">
-                        <strong>{session.session_id.slice(0, 8)}</strong>
-                        <span>{session.status}</span>
-                      </div>
-                      <p>{session.provider.toUpperCase()} · {session.video_frames} frames</p>
-                    </button>
-                  ))
-                ) : (
-                  <p className="panel-empty">No sessions yet.</p>
-                )}
               </div>
             </section>
 
