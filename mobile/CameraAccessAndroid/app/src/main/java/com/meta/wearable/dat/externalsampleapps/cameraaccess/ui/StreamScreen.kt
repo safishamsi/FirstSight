@@ -36,7 +36,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.meta.wearable.dat.camera.types.StreamSessionState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent.VisionAgentMode
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent.VisionAgentSessionViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiSessionViewModel
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.settings.SettingsManager
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamingMode
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
@@ -56,10 +59,13 @@ fun StreamScreen(
                 ),
         ),
     geminiViewModel: GeminiSessionViewModel = viewModel(),
+    visionAgentViewModel: VisionAgentSessionViewModel = viewModel(),
     webrtcViewModel: WebRTCSessionViewModel = viewModel(),
 ) {
+    val aiMode = SettingsManager.aiBackendMode
     val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
     val geminiUiState by geminiViewModel.uiState.collectAsStateWithLifecycle()
+    val visionAgentUiState by visionAgentViewModel.uiState.collectAsStateWithLifecycle()
     val webrtcUiState by webrtcViewModel.uiState.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
@@ -67,6 +73,11 @@ fun StreamScreen(
     // Wire Gemini VM to Stream VM for frame forwarding
     LaunchedEffect(geminiViewModel) {
         streamViewModel.geminiViewModel = geminiViewModel
+    }
+
+    // Wire Vision Agent VM to Stream VM for frame forwarding
+    LaunchedEffect(visionAgentViewModel) {
+        streamViewModel.visionAgentViewModel = visionAgentViewModel
     }
 
     // Wire WebRTC VM to Stream VM for frame forwarding
@@ -78,9 +89,11 @@ fun StreamScreen(
     LaunchedEffect(isPhoneMode) {
         if (isPhoneMode) {
             geminiViewModel.streamingMode = StreamingMode.PHONE
+            visionAgentViewModel.streamingMode = StreamingMode.PHONE
             streamViewModel.startPhoneCamera(lifecycleOwner)
         } else {
             geminiViewModel.streamingMode = StreamingMode.GLASSES
+            visionAgentViewModel.streamingMode = StreamingMode.GLASSES
             streamViewModel.startStream()
         }
     }
@@ -93,6 +106,9 @@ fun StreamScreen(
             } else {
                 geminiViewModel.clearDetectionOverlay()
             }
+            if (visionAgentUiState.isVisionAgentActive) {
+                visionAgentViewModel.stopSession()
+            }
             if (webrtcUiState.isActive) {
                 webrtcViewModel.stopSession()
             }
@@ -104,6 +120,12 @@ fun StreamScreen(
         geminiUiState.errorMessage?.let { msg ->
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             geminiViewModel.clearError()
+        }
+    }
+    LaunchedEffect(visionAgentUiState.errorMessage) {
+        visionAgentUiState.errorMessage?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            visionAgentViewModel.clearError()
         }
     }
     LaunchedEffect(webrtcUiState.errorMessage) {
@@ -142,8 +164,11 @@ fun StreamScreen(
             // Top overlays (below status bar)
             Column(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 8.dp)) {
                 // Gemini overlay
-                if (geminiUiState.isGeminiActive) {
+                if (aiMode == VisionAgentMode.DIRECT_GEMINI && geminiUiState.isGeminiActive) {
                     GeminiOverlay(uiState = geminiUiState)
+                }
+                if (aiMode == VisionAgentMode.VISION_AGENT_BACKEND && visionAgentUiState.isVisionAgentActive) {
+                    VisionAgentOverlay(uiState = visionAgentUiState)
                 }
 
                 // WebRTC overlay
@@ -165,6 +190,7 @@ fun StreamScreen(
             ControlsRow(
                 onStopStream = {
                     if (geminiUiState.isGeminiActive) geminiViewModel.stopSession()
+                    if (visionAgentUiState.isVisionAgentActive) visionAgentViewModel.stopSession()
                     geminiViewModel.clearDetectionOverlay()
                     if (webrtcUiState.isActive) webrtcViewModel.stopSession()
                     streamViewModel.stopStream()
@@ -172,13 +198,30 @@ fun StreamScreen(
                 },
                 onCapturePhoto = { streamViewModel.capturePhoto() },
                 onToggleAI = {
-                    if (geminiUiState.isGeminiActive) {
-                        geminiViewModel.stopSession()
-                    } else {
-                        geminiViewModel.startSession()
+                    when (aiMode) {
+                        VisionAgentMode.DIRECT_GEMINI -> {
+                            if (geminiUiState.isGeminiActive) {
+                                geminiViewModel.stopSession()
+                            } else {
+                                visionAgentViewModel.stopSession()
+                                geminiViewModel.startSession()
+                            }
+                        }
+
+                        VisionAgentMode.VISION_AGENT_BACKEND -> {
+                            if (visionAgentUiState.isVisionAgentActive) {
+                                visionAgentViewModel.stopSession()
+                            } else {
+                                geminiViewModel.stopSession()
+                                visionAgentViewModel.startSession()
+                            }
+                        }
                     }
                 },
-                isAIActive = geminiUiState.isGeminiActive,
+                isAIActive = when (aiMode) {
+                    VisionAgentMode.DIRECT_GEMINI -> geminiUiState.isGeminiActive
+                    VisionAgentMode.VISION_AGENT_BACKEND -> visionAgentUiState.isVisionAgentActive
+                },
                 onToggleLive = {
                     if (webrtcUiState.isActive) {
                         webrtcViewModel.stopSession()

@@ -3,6 +3,7 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.settings
 import android.content.Context
 import android.content.SharedPreferences
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.Secrets
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent.VisionAgentMode
 
 object SettingsManager {
     private const val PREFS_NAME = "visionclaw_settings"
@@ -20,6 +21,22 @@ object SettingsManager {
     var geminiSystemPrompt: String
         get() = prefs.getString("geminiSystemPrompt", null) ?: DEFAULT_SYSTEM_PROMPT
         set(value) = prefs.edit().putString("geminiSystemPrompt", value).apply()
+
+    var aiBackendMode: VisionAgentMode
+        get() = VisionAgentMode.fromStorage(prefs.getString("aiBackendMode", null))
+        set(value) = prefs.edit().putString("aiBackendMode", value.storageValue).apply()
+
+    var backendBaseUrl: String
+        get() = prefs.getString("backendBaseUrl", null) ?: Secrets.pythonBackendBaseUrl
+        set(value) = prefs.edit().putString("backendBaseUrl", value).apply()
+
+    var backendUserId: String
+        get() = prefs.getString("backendUserId", null) ?: Secrets.pythonBackendUserId
+        set(value) = prefs.edit().putString("backendUserId", value).apply()
+
+    var backendUserName: String
+        get() = prefs.getString("backendUserName", null) ?: Secrets.pythonBackendUserName
+        set(value) = prefs.edit().putString("backendUserName", value).apply()
 
     var openClawHost: String
         get() = prefs.getString("openClawHost", null) ?: Secrets.openClawHost

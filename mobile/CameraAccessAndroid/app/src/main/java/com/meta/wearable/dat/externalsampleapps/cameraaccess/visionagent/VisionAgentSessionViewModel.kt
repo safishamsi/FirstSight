@@ -1,0 +1,159 @@
+package com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent
+
+import android.graphics.Bitmap
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.AudioManager
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiConfig
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamingMode
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+sealed class VisionAgentConnectionState {
+    object Disconnected : VisionAgentConnectionState()
+    object Bootstrapping : VisionAgentConnectionState()
+    object Connecting : VisionAgentConnectionState()
+    object Ready : VisionAgentConnectionState()
+    data class Error(val message: String) : VisionAgentConnectionState()
+}
+
+data class VisionAgentUiState(
+    val isVisionAgentActive: Boolean = false,
+    val connectionState: VisionAgentConnectionState = VisionAgentConnectionState.Disconnected,
+    val errorMessage: String? = null,
+    val sessionId: String? = null,
+    val callId: String? = null,
+    val agentSessionId: String? = null,
+    val provider: String? = null,
+    val videoFrames: Int = 0,
+    val audioChunks: Int = 0,
+    val visionAgentStarted: Boolean = false,
+    val visionAgentError: String? = null,
+    val userTranscript: String = "",
+    val assistantTranscript: String = "",
+)
+
+class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(application) {
+    private val _uiState = MutableStateFlow(VisionAgentUiState())
+    val uiState: StateFlow<VisionAgentUiState> = _uiState.asStateFlow()
+
+    private val visionAgentService = VisionAgentService()
+    private val audioManager = AudioManager()
+    private val speechPlayer = VisionAgentSpeechPlayer(application)
+    private var lastVideoFrameTime: Long = 0
+
+    var streamingMode: StreamingMode = StreamingMode.GLASSES
+
+    fun startSession() {
+        if (_uiState.value.isVisionAgentActive) return
+        if (!VisionAgentConfig.isConfigured) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "Vision Agent backend URL not configured. Open Settings and add your backend base URL."
+            )
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(
+            isVisionAgentActive = true,
+            connectionState = VisionAgentConnectionState.Bootstrapping,
+            errorMessage = null,
+        )
+
+        audioManager.onAudioCaptured = lambda@{ data ->
+            if (streamingMode == StreamingMode.PHONE) {
+                visionAgentService.sendAudio(data)
+                return@lambda
+            }
+            visionAgentService.sendAudio(data)
+        }
+
+        visionAgentService.onBootstrap = { bootstrap ->
+            _uiState.value = _uiState.value.copy(
+                sessionId = bootstrap.sessionId,
+                callId = bootstrap.callId,
+                agentSessionId = bootstrap.agentSessionId,
+                provider = bootstrap.provider,
+                visionAgentStarted = bootstrap.visionAgentStarted,
+                visionAgentError = bootstrap.visionAgentError,
+                connectionState = VisionAgentConnectionState.Connecting,
+            )
+        }
+        visionAgentService.onAck = { videoFrames, audioChunks ->
+            _uiState.value = _uiState.value.copy(
+                connectionState = VisionAgentConnectionState.Ready,
+                videoFrames = videoFrames,
+                audioChunks = audioChunks,
+            )
+        }
+        visionAgentService.onInputTranscription = { text ->
+            _uiState.value = _uiState.value.copy(
+                userTranscript = _uiState.value.userTranscript + text,
+                assistantTranscript = "",
+            )
+        }
+        visionAgentService.onOutputTranscription = { text ->
+            speechPlayer.speak(text)
+            _uiState.value = _uiState.value.copy(
+                assistantTranscript = _uiState.value.assistantTranscript + text,
+            )
+        }
+        visionAgentService.onTurnComplete = {
+            _uiState.value = _uiState.value.copy(userTranscript = "")
+        }
+        visionAgentService.onDisconnected = { reason ->
+            if (_uiState.value.isVisionAgentActive) {
+                stopSession()
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Vision Agent backend connection lost: ${reason ?: "Unknown error"}",
+                    connectionState = VisionAgentConnectionState.Error(reason ?: "Unknown error"),
+                )
+            }
+        }
+
+        visionAgentService.connect { setupOk ->
+            if (!setupOk) {
+                _uiState.value = _uiState.value.copy(
+                    isVisionAgentActive = false,
+                    connectionState = VisionAgentConnectionState.Error("Failed to connect to Vision Agent backend"),
+                    errorMessage = "Failed to connect to Vision Agent backend",
+                )
+                return@connect
+            }
+            try {
+                audioManager.startCapture()
+            } catch (e: Exception) {
+                stopSession()
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = "Mic capture failed: ${e.message}",
+                    connectionState = VisionAgentConnectionState.Error("Mic capture failed"),
+                )
+            }
+        }
+    }
+
+    fun stopSession() {
+        audioManager.stopCapture()
+        speechPlayer.stop()
+        visionAgentService.disconnect()
+        lastVideoFrameTime = 0
+        _uiState.value = VisionAgentUiState()
+    }
+
+    fun sendVideoFrameIfThrottled(bitmap: Bitmap) {
+        if (!_uiState.value.isVisionAgentActive) return
+        val now = System.currentTimeMillis()
+        if (now - lastVideoFrameTime < GeminiConfig.VIDEO_FRAME_INTERVAL_MS) return
+        lastVideoFrameTime = now
+        visionAgentService.sendVideoFrame(bitmap)
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        speechPlayer.shutdown()
+    }
+}

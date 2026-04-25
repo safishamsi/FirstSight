@@ -33,6 +33,7 @@ import com.meta.wearable.dat.camera.types.VideoFrame
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.DeviceSelector
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent.VisionAgentSessionViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiSessionViewModel
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.phone.PhoneCameraManager
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
@@ -70,6 +71,7 @@ class StreamViewModel(
 
   // VisionClaw additions
   var geminiViewModel: GeminiSessionViewModel? = null
+  var visionAgentViewModel: VisionAgentSessionViewModel? = null
   var webrtcViewModel: WebRTCSessionViewModel? = null
   private var phoneCameraManager: PhoneCameraManager? = null
 
@@ -112,6 +114,8 @@ class StreamViewModel(
       _uiState.update { it.copy(videoFrame = bitmap) }
       // Forward to Gemini (throttled inside the VM)
       geminiViewModel?.sendVideoFrameIfThrottled(bitmap)
+      // Forward to Vision Agent backend mode (throttled inside the VM)
+      visionAgentViewModel?.sendVideoFrameIfThrottled(bitmap)
       // Forward to WebRTC (every frame)
       webrtcViewModel?.pushVideoFrame(bitmap)
     }
@@ -239,6 +243,8 @@ class StreamViewModel(
 
     // Forward to Gemini (throttled inside the VM)
     geminiViewModel?.sendVideoFrameIfThrottled(bitmap)
+    // Forward to Vision Agent backend mode (throttled inside the VM)
+    visionAgentViewModel?.sendVideoFrameIfThrottled(bitmap)
     // Forward to WebRTC (every frame)
     webrtcViewModel?.pushVideoFrame(bitmap)
   }

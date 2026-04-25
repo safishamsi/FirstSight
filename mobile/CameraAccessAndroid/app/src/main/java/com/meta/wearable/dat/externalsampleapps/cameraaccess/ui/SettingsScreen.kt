@@ -16,6 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent.VisionAgentMode
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.settings.SettingsManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,6 +49,10 @@ fun SettingsScreen(
     val tag = "SettingsScreen"
     var geminiAPIKey by remember { mutableStateOf(SettingsManager.geminiAPIKey) }
     var systemPrompt by remember { mutableStateOf(SettingsManager.geminiSystemPrompt) }
+    var aiBackendMode by remember { mutableStateOf(SettingsManager.aiBackendMode) }
+    var backendBaseUrl by remember { mutableStateOf(SettingsManager.backendBaseUrl) }
+    var backendUserId by remember { mutableStateOf(SettingsManager.backendUserId) }
+    var backendUserName by remember { mutableStateOf(SettingsManager.backendUserName) }
     var openClawHost by remember { mutableStateOf(SettingsManager.openClawHost) }
     var openClawPort by remember { mutableStateOf(SettingsManager.openClawPort.toString()) }
     var openClawHookToken by remember { mutableStateOf(SettingsManager.openClawHookToken) }
@@ -60,6 +67,10 @@ fun SettingsScreen(
     fun save() {
         SettingsManager.geminiAPIKey = geminiAPIKey.trim()
         SettingsManager.geminiSystemPrompt = systemPrompt.trim()
+        SettingsManager.aiBackendMode = aiBackendMode
+        SettingsManager.backendBaseUrl = backendBaseUrl.trim()
+        SettingsManager.backendUserId = backendUserId.trim()
+        SettingsManager.backendUserName = backendUserName.trim()
         SettingsManager.openClawHost = openClawHost.trim()
         openClawPort.trim().toIntOrNull()?.let { SettingsManager.openClawPort = it }
         SettingsManager.openClawHookToken = openClawHookToken.trim()
@@ -78,6 +89,10 @@ fun SettingsScreen(
     fun reload() {
         geminiAPIKey = SettingsManager.geminiAPIKey
         systemPrompt = SettingsManager.geminiSystemPrompt
+        aiBackendMode = SettingsManager.aiBackendMode
+        backendBaseUrl = SettingsManager.backendBaseUrl
+        backendUserId = SettingsManager.backendUserId
+        backendUserName = SettingsManager.backendUserName
         openClawHost = SettingsManager.openClawHost
         openClawPort = SettingsManager.openClawPort.toString()
         openClawHookToken = SettingsManager.openClawHookToken
@@ -115,12 +130,57 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // Gemini section
+            SectionHeader("AI Session Mode")
+            Text(
+                "Choose whether the app talks directly to Gemini or routes media through the Python backend.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ModeButton(
+                    label = "Direct Gemini",
+                    selected = aiBackendMode == VisionAgentMode.DIRECT_GEMINI,
+                    onClick = { aiBackendMode = VisionAgentMode.DIRECT_GEMINI },
+                    modifier = Modifier.weight(1f),
+                )
+                ModeButton(
+                    label = "Vision Agent Backend",
+                    selected = aiBackendMode == VisionAgentMode.VISION_AGENT_BACKEND,
+                    onClick = { aiBackendMode = VisionAgentMode.VISION_AGENT_BACKEND },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
             SectionHeader("Gemini API")
             MonoTextField(
                 value = geminiAPIKey,
                 onValueChange = { geminiAPIKey = it },
                 label = "API Key",
                 placeholder = "Enter Gemini API key",
+            )
+
+            SectionHeader("Vision Agent Backend")
+            MonoTextField(
+                value = backendBaseUrl,
+                onValueChange = { backendBaseUrl = it },
+                label = "Base URL",
+                placeholder = "http://your-mac.local:8000",
+                keyboardType = KeyboardType.Uri,
+            )
+            MonoTextField(
+                value = backendUserId,
+                onValueChange = { backendUserId = it },
+                label = "User ID",
+                placeholder = "android-demo-user",
+            )
+            MonoTextField(
+                value = backendUserName,
+                onValueChange = { backendUserName = it },
+                label = "Display Name",
+                placeholder = "DroopDetection Demo",
             )
 
             SectionHeader("System Prompt")
@@ -287,4 +347,23 @@ private fun MonoTextField(
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
     )
+}
+
+@Composable
+private fun ModeButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) AppColor.DeepBlue else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+        ),
+    ) {
+        Text(label)
+    }
 }
