@@ -1,0 +1,21 @@
+.DS_Store
+*.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.idea/
+.env
+.claude/
+.cursor/
+**/.omx/
+
+# Android
+samples/CameraAccessAndroid/app/src/main/java/**/Secrets.kt
+samples/CameraAccessAndroid/local.properties
+samples/CameraAccessAndroid/.gradle/
+samples/CameraAccessAndroid/build/
+samples/CameraAccessAndroid/app/build/
+
+# Python backend
+backend/.env
+backend/.venv*/

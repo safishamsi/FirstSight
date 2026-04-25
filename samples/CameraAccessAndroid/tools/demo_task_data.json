@@ -1,0 +1,39 @@
+{
+  "task": "Inspect laptop setup",
+  "steps": [
+    {
+      "index": 0,
+      "title": "Check power cable",
+      "targetQueries": ["charging cable", "power cable", "wire"],
+      "instruction": "Identify the charging cable and make sure it is fully seated in the laptop.",
+      "successHints": [
+        "The cable should be visibly connected at the port.",
+        "If it looks loose, push it in firmly."
+      ]
+    },
+    {
+      "index": 1,
+      "title": "Check charging port",
+      "targetQueries": ["charging port", "usb-c port", "port"],
+      "instruction": "Find the charging port and verify the cable is inserted straight and completely.",
+      "successHints": [
+        "If the cable is crooked, reseat it.",
+        "Try another compatible port if charging still does not start."
+      ]
+    },
+    {
+      "index": 2,
+      "title": "Verify charging indicator",
+      "targetQueries": ["charging indicator", "charging light", "battery icon"],
+      "instruction": "Look for the charging light or the on-screen battery icon to confirm power is flowing.",
+      "successHints": [
+        "A charging icon or light should appear after the cable is fully seated."
+      ]
+    }
+  ],
+  "docs": [
+    "If the laptop is not charging, reconnect the cable firmly.",
+    "If charging does not begin, switch to another compatible port.",
+    "Confirm charging with the indicator light or battery icon."
+  ]
+}

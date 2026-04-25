@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "droopdetection-backend"
+version = "0.1.0"
+description = "Minimal FastAPI and Vision Agents scaffold for the droopdetection backend."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "pydantic-settings>=2.4,<3.0",
+  "python-dotenv>=1.0,<2.0",
+  "uvicorn[standard]>=0.30,<1.0",
+  "vision-agents[gemini,getstream,openai]>=0.5.4,<1.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27,<1.0",
+  "pytest>=8.0,<9.0"
+]
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

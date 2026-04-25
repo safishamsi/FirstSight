@@ -1,0 +1,79 @@
+{
+  "plant": {
+    "title": "Potted plant",
+    "description": "A decorative indoor plant in a pot. In the demo it is a reliable object to detect and track.",
+    "used_for": "Reference/demo object for proving real-time visual grounding.",
+    "search_results": [
+      {
+        "title": "Rubber plant care guide",
+        "url": "https://www.thesill.com/blog/how-to-care-for-a-rubber-tree",
+        "snippet": "Care overview for rubber plants with light and watering guidance."
+      },
+      {
+        "title": "How to identify common houseplants",
+        "url": "https://www.rhs.org.uk/plants/types/houseplants",
+        "snippet": "General resource for identifying and understanding indoor plants."
+      }
+    ]
+  },
+  "bottle": {
+    "title": "Bottle",
+    "description": "A portable container used to hold liquids.",
+    "used_for": "Often used as a simple target object in object-detection demos.",
+    "search_results": [
+      {
+        "title": "Water bottle basics",
+        "url": "https://en.wikipedia.org/wiki/Water_bottle",
+        "snippet": "General background on reusable and disposable water bottles."
+      }
+    ]
+  },
+  "scissors": {
+    "title": "Scissors",
+    "description": "A hand-operated cutting tool with two pivoted blades.",
+    "used_for": "Cutting paper, plastic, and lightweight materials.",
+    "search_results": [
+      {
+        "title": "Scissors overview",
+        "url": "https://en.wikipedia.org/wiki/Scissors",
+        "snippet": "History, design, and common uses of scissors."
+      }
+    ]
+  },
+  "screwdriver": {
+    "title": "Screwdriver",
+    "description": "A handheld tool used to turn screws.",
+    "used_for": "Tightening or loosening screws during assembly.",
+    "search_results": [
+      {
+        "title": "Screwdriver guide",
+        "url": "https://en.wikipedia.org/wiki/Screwdriver",
+        "snippet": "Overview of screwdriver types and uses."
+      }
+    ]
+  },
+  "charging cable": {
+    "title": "Charging cable",
+    "description": "A cable that carries power from a charger to a device.",
+    "used_for": "Connecting a device to a power source.",
+    "search_results": [
+      {
+        "title": "USB-C cable guide",
+        "url": "https://www.usb.org/usb-type-cr-cable-and-connector-specification",
+        "snippet": "USB-C cable and connector information."
+      }
+    ]
+  },
+  "charging port": {
+    "title": "Charging port",
+    "description": "The physical port where a charging cable connects to a device.",
+    "used_for": "Receiving power from the charging cable.",
+    "search_results": [
+      {
+        "title": "USB-C connector overview",
+        "url": "https://www.usb.org/usb-type-cr-cable-and-connector-specification",
+        "snippet": "Reference documentation for USB-C connectors and ports."
+      }
+    ]
+  }
+}
