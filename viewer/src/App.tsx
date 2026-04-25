@@ -163,7 +163,6 @@ function App() {
   return (
     <main className="app-shell">
       <div className="ambient-grid" />
-      <div className="top-label">◫ Vision Agent Workspace</div>
 
       <section className="studio-shell">
         <header className="studio-header">

@@ -33,7 +33,7 @@ select {
 .app-shell {
   position: relative;
   height: 100dvh;
-  padding: 10px;
+  padding: 8px;
   overflow: hidden;
 }
 
@@ -46,19 +46,10 @@ select {
   pointer-events: none;
 }
 
-.top-label {
-  position: relative;
-  z-index: 1;
-  margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 11px;
-  letter-spacing: 0.03em;
-}
-
 .studio-shell {
   position: relative;
   z-index: 1;
-  height: calc(100dvh - 28px);
+  height: calc(100dvh - 16px);
   border-radius: 28px;
   background: #f5f5f7;
   color: #1b1f27;
@@ -71,15 +62,16 @@ select {
 
 .studio-header {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr 1.4fr;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   border-bottom: 3px solid #252833;
 }
 
 .studio-brand,
 .studio-nav,
 .studio-controls {
-  min-height: 64px;
-  padding: 12px 16px;
+  min-height: 50px;
+  padding: 8px 12px;
 }
 
 .studio-brand {
@@ -89,7 +81,7 @@ select {
 .studio-nav {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   justify-content: center;
   border-right: 3px solid #252833;
 }
@@ -97,22 +89,22 @@ select {
 .studio-controls {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   justify-content: flex-end;
 }
 
 .studio-kicker {
-  margin: 0 0 6px;
+  margin: 0 0 2px;
   color: #4e5980;
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .studio-brand h1 {
   margin: 0;
-  font-size: 23px;
-  line-height: 1;
+  font-size: 16px;
+  line-height: 1.05;
 }
 
 .nav-tab {
@@ -120,8 +112,8 @@ select {
   background: transparent;
   color: #6b738c;
   letter-spacing: 0.22em;
-  font-size: 12px;
-  padding: 8px 0;
+  font-size: 10px;
+  padding: 4px 0;
   border-bottom: 3px solid transparent;
 }
 
@@ -132,8 +124,8 @@ select {
 
 .control-block {
   display: grid;
-  gap: 4px;
-  min-width: 152px;
+  gap: 2px;
+  min-width: 136px;
 }
 
 .control-block span,
@@ -142,16 +134,16 @@ select {
   color: #697287;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .control-block input,
 .control-block select {
-  height: 40px;
+  height: 34px;
   border: 2px solid #2d3140;
   background: #fff;
   color: #171b25;
-  padding: 8px 12px;
+  padding: 6px 10px;
   box-shadow: 6px 6px 0 rgba(33, 39, 61, 0.08);
 }
 
