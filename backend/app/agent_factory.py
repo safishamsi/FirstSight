@@ -49,7 +49,7 @@ def build_stt(settings: Settings) -> object:
 
 
 def build_tts(settings: Settings) -> object | None:
-    if not settings.elevenlabs_api_key:
+    if not settings.backend_tts_enabled or not settings.elevenlabs_api_key:
         return None
 
     from vision_agents.plugins import elevenlabs

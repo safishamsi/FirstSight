@@ -48,6 +48,34 @@ def test_session_create_returns_backend_bootstrap_shape() -> None:
     assert "STREAM_API_SECRET" in payload["missing_configuration"]
 
 
+def test_session_runtime_config_is_persisted() -> None:
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/sessions",
+        json={
+            "user_id": "android-demo-user",
+            "runtime_config": {
+                "speech_pipeline": "fast_whisper_pipeline",
+                "fast_whisper_model_size": "small",
+                "fast_whisper_device": "cpu",
+                "pipeline_turn_delay_ms": 900,
+                "backend_tts_enabled": False,
+            },
+        },
+    )
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    status_response = client.get(f"/sessions/{session_id}")
+    assert status_response.status_code == 200
+    payload = status_response.json()
+    assert payload["runtime_config"]["speech_pipeline"] == "fast_whisper_pipeline"
+    assert payload["runtime_config"]["fast_whisper_model_size"] == "small"
+    assert payload["runtime_config"]["pipeline_turn_delay_ms"] == 900
+    assert payload["runtime_config"]["backend_tts_enabled"] is False
+
+
 def test_session_websocket_tracks_ingest_counts() -> None:
     client = TestClient(app)
 

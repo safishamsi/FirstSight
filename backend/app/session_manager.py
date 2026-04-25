@@ -22,6 +22,7 @@ class SessionRecord:
     call_type: str | None = None
     agent_session_id: str | None = None
     stream_user_id: str | None = None
+    runtime_config: dict[str, object] = field(default_factory=dict)
     vision_agent_started: bool = False
     vision_agent_error: str | None = None
     welcome_sent: bool = False
@@ -50,6 +51,7 @@ class SessionRecord:
             "call_type": self.call_type,
             "agent_session_id": self.agent_session_id,
             "stream_user_id": self.stream_user_id,
+            "runtime_config": dict(self.runtime_config),
             "vision_agent_started": self.vision_agent_started,
             "vision_agent_error": self.vision_agent_error,
             "welcome_sent": self.welcome_sent,
@@ -75,7 +77,7 @@ class SessionManager:
         self._lock = Lock()
         self._sessions: dict[str, SessionRecord] = {}
 
-    def create(self, provider: str) -> SessionRecord:
+    def create(self, provider: str, runtime_config: dict[str, object] | None = None) -> SessionRecord:
         session_id = uuid4().hex
         timestamp = utc_now_iso()
         record = SessionRecord(
@@ -83,6 +85,7 @@ class SessionManager:
             provider=provider,
             created_at=timestamp,
             last_event_at=timestamp,
+            runtime_config=runtime_config or {},
         )
         with self._lock:
             self._sessions[session_id] = record

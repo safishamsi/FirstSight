@@ -10,6 +10,7 @@ from .schemas import (
     BootstrapSummary,
     HealthResponse,
     SessionCreateRequest,
+    SessionRuntimeConfig,
     ServiceInfo,
     SessionCreateResponse,
     SessionStatusResponse,
@@ -119,11 +120,33 @@ def _missing_configuration(settings: Settings) -> list[str]:
         missing.append("GEMINI_API_KEY")
     if settings.realtime_provider == "openai" and not settings.openai_api_key:
         missing.append("OPENAI_API_KEY")
+    if settings.speech_pipeline == "fast_whisper_pipeline" and not settings.gemini_api_key:
+        if "GEMINI_API_KEY" not in missing:
+            missing.append("GEMINI_API_KEY")
     if not settings.stream_api_key:
         missing.append("STREAM_API_KEY")
     if not settings.stream_api_secret:
         missing.append("STREAM_API_SECRET")
     return missing
+
+
+def _runtime_config_overrides(runtime_config: SessionRuntimeConfig) -> dict[str, object]:
+    overrides: dict[str, object] = {}
+    if runtime_config.speech_pipeline is not None:
+        overrides["speech_pipeline"] = runtime_config.speech_pipeline
+    if runtime_config.gemini_llm_model is not None:
+        overrides["gemini_llm_model"] = runtime_config.gemini_llm_model
+    if runtime_config.fast_whisper_model_size is not None:
+        overrides["fast_whisper_model_size"] = runtime_config.fast_whisper_model_size
+    if runtime_config.fast_whisper_language is not None:
+        overrides["fast_whisper_language"] = runtime_config.fast_whisper_language
+    if runtime_config.fast_whisper_device is not None:
+        overrides["fast_whisper_device"] = runtime_config.fast_whisper_device
+    if runtime_config.pipeline_turn_delay_ms is not None:
+        overrides["pipeline_turn_delay_ms"] = runtime_config.pipeline_turn_delay_ms
+    if runtime_config.backend_tts_enabled is not None:
+        overrides["backend_tts_enabled"] = runtime_config.backend_tts_enabled
+    return overrides
 
 
 @router.get("/", response_model=ServiceInfo)
@@ -172,14 +195,20 @@ async def create_session(
     settings: Settings = Depends(get_settings),
 ) -> SessionCreateResponse:
     request = payload or SessionCreateRequest()
-    record = session_manager.create(provider=settings.realtime_provider)
-    missing = _missing_configuration(settings)
+    effective_settings = settings.model_copy(
+        update=_runtime_config_overrides(request.runtime_config),
+    )
+    record = session_manager.create(
+        provider=effective_settings.realtime_provider,
+        runtime_config=request.runtime_config.model_dump(exclude_none=True),
+    )
+    missing = _missing_configuration(effective_settings)
     bootstrap = None
     bootstrap_error: str | None = None
     logger.info(
         "create_session session_id=%s provider=%s user_id=%s call_type=%s start_agent_session=%s missing=%s",
         record.session_id,
-        settings.realtime_provider,
+        effective_settings.realtime_provider,
         request.user_id,
         request.call_type,
         request.start_agent_session,
@@ -192,13 +221,13 @@ async def create_session(
         and "STREAM_API_KEY" not in missing
         and "STREAM_API_SECRET" not in missing
         and (
-            ("GEMINI_API_KEY" not in missing and settings.realtime_provider == "gemini")
-            or ("OPENAI_API_KEY" not in missing and settings.realtime_provider == "openai")
+            ("GEMINI_API_KEY" not in missing and effective_settings.realtime_provider == "gemini")
+            or ("OPENAI_API_KEY" not in missing and effective_settings.realtime_provider == "openai")
         )
     ):
         try:
             bootstrap = await vision_runtime.bootstrap(
-                settings,
+                effective_settings,
                 user_id=request.user_id,
                 user_name=request.user_name,
                 call_id=request.call_id,
@@ -216,13 +245,13 @@ async def create_session(
             logger.exception(
                 "vision_runtime bootstrap failed session_id=%s provider=%s",
                 record.session_id,
-                settings.realtime_provider,
+                effective_settings.realtime_provider,
             )
     else:
         logger.info(
             "vision_runtime bootstrap skipped session_id=%s provider=%s reason=missing_transport_or_provider_config",
             record.session_id,
-            settings.realtime_provider,
+            effective_settings.realtime_provider,
         )
 
     session_manager.update_bootstrap(
@@ -276,7 +305,7 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unknown session")
         return
 
-    settings = get_settings()
+    settings = get_settings().model_copy(update=record.runtime_config)
     missing = _missing_configuration(settings)
 
     await websocket.accept()

@@ -22,6 +22,16 @@ class BootstrapSummary(BaseModel):
     notes: list[str]
 
 
+class SessionRuntimeConfig(BaseModel):
+    speech_pipeline: str | None = None
+    gemini_llm_model: str | None = None
+    fast_whisper_model_size: str | None = None
+    fast_whisper_language: str | None = None
+    fast_whisper_device: str | None = None
+    pipeline_turn_delay_ms: int | None = None
+    backend_tts_enabled: bool | None = None
+
+
 class SessionCreateResponse(BaseModel):
     session_id: str
     provider: str
@@ -64,6 +74,7 @@ class SessionStatusResponse(BaseModel):
     stream_user_id: str | None = None
     vision_agent_started: bool = False
     vision_agent_error: str | None = None
+    runtime_config: SessionRuntimeConfig = Field(default_factory=SessionRuntimeConfig)
 
 
 class SessionCreateRequest(BaseModel):
@@ -72,3 +83,4 @@ class SessionCreateRequest(BaseModel):
     call_id: str | None = None
     call_type: str = "default"
     start_agent_session: bool = True
+    runtime_config: SessionRuntimeConfig = Field(default_factory=SessionRuntimeConfig)

@@ -71,8 +71,10 @@ The current Vision Agent backend mode defaults to:
 - `SPEECH_PIPELINE=fast_whisper_pipeline`
 - `FAST_WHISPER_MODEL_SIZE=base`
 - `GEMINI_LLM_MODEL=gemini-3-flash-preview`
+- `BACKEND_TTS_ENABLED=true`
 
 If `ELEVENLABS_API_KEY` is absent, the backend still runs Fast-Whisper + Gemini and the Android app falls back to local TTS playback.
+These values can also be overridden per session from the Android app Settings screen.
 
 ### Meta / DAT Android Tokens
 
