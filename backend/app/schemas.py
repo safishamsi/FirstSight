@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ServiceInfo(BaseModel):
@@ -53,6 +53,11 @@ class SessionStatusResponse(BaseModel):
     text_messages: int
     last_event_type: str | None
     recent_events: list[str]
+    latest_user_transcript: str = ""
+    latest_assistant_transcript: str = ""
+    transcript_turns: list[dict[str, str]] = Field(default_factory=list)
+    processor_signals: dict[str, dict[str, object]] = Field(default_factory=dict)
+    debug_events: list[dict[str, object]] = Field(default_factory=list)
     call_id: str | None = None
     call_type: str | None = None
     agent_session_id: str | None = None

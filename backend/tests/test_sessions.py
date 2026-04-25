@@ -152,3 +152,24 @@ def test_session_websocket_accepts_gemini_style_envelopes() -> None:
     assert payload["video_frames"] == 1
     assert payload["audio_chunks"] == 1
     assert payload["text_messages"] >= 2
+
+
+def test_sessions_list_exposes_debug_state() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    with client.websocket_connect(f"/sessions/{session_id}/stream") as websocket:
+        websocket.receive_json()
+        websocket.send_json({"setup": {"model": "backend-adapter"}})
+        websocket.receive_json()
+        websocket.receive_json()
+
+    list_response = client.get("/sessions")
+    assert list_response.status_code == 200
+    sessions = list_response.json()
+    matching = next(session for session in sessions if session["session_id"] == session_id)
+    assert matching["debug_events"]
+    assert matching["debug_events"][-1]["type"] in {"stream_closed", "setup", "stream_connected"}

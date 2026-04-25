@@ -20,6 +20,7 @@ from vision_agents.core.utils.video_track import QueuedVideoTrack
 
 from .agent_factory import _build_processors, build_realtime_llm
 from .config import Settings
+from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,7 @@ class VisionSessionBridge:
             self._processors = processors
             self._started = True
             self._closed = False
+            await self._publish_processor_signals()
 
     async def send_initial_prompt(self) -> None:
         if not self.started:
@@ -161,6 +163,7 @@ class VisionSessionBridge:
             return
         frame = av.VideoFrame.from_image(image)
         await self._video_track.add_frame(frame)
+        await self._publish_processor_signals()
 
     async def send_text(self, text: str) -> None:
         if not self.started:
@@ -232,6 +235,29 @@ class VisionSessionBridge:
             )
         return "\n".join(parts)
 
+    async def _publish_processor_signals(self) -> None:
+        for processor in self._processors:
+            latest_signal = getattr(processor, "latest_signal", None)
+            if latest_signal is None:
+                continue
+            payload = {
+                "name": getattr(processor, "name", processor.__class__.__name__),
+                "score": getattr(latest_signal, "score", None),
+                "threshold": getattr(latest_signal, "threshold", None),
+                "over_threshold": getattr(latest_signal, "over_threshold", None),
+                "message": getattr(latest_signal, "message", ""),
+            }
+            session_manager.update_processor_signal(
+                self.session_id,
+                payload["name"],
+                payload,
+            )
+            session_manager.append_debug_event(
+                self.session_id,
+                "processor_signal",
+                payload,
+            )
+
     def _subscribe_to_events(self, llm: object) -> None:
         @llm.events.subscribe
         async def on_user_transcript(event: RealtimeUserSpeechTranscriptionEvent) -> None:
@@ -240,6 +266,12 @@ class VisionSessionBridge:
                 self.session_id,
                 len(event.text),
                 event.text[:200],
+            )
+            session_manager.update_input_transcript(self.session_id, event.text)
+            session_manager.append_debug_event(
+                self.session_id,
+                "input_transcription",
+                {"text": event.text},
             )
             await self._safe_emit(
                 {
@@ -259,6 +291,12 @@ class VisionSessionBridge:
                 len(event.text),
                 event.text[:200],
             )
+            session_manager.update_output_transcript(self.session_id, event.text)
+            session_manager.append_debug_event(
+                self.session_id,
+                "output_transcription",
+                {"text": event.text},
+            )
             await self._safe_emit(
                 {
                     "serverContent": {
@@ -271,6 +309,12 @@ class VisionSessionBridge:
         async def on_turn_complete(event: RealtimeAudioOutputDoneEvent) -> None:
             del event
             logger.info("bridge turn complete session_id=%s", self.session_id)
+            session_manager.append_debug_event(
+                self.session_id,
+                "turn_complete",
+                {},
+            )
+            session_manager.complete_turn(self.session_id)
             await self._safe_emit({"serverContent": {"turnComplete": True}})
 
         @llm.events.subscribe
@@ -282,6 +326,11 @@ class VisionSessionBridge:
                 "bridge disconnect session_id=%s message=%r",
                 self.session_id,
                 message or "Realtime bridge disconnected",
+            )
+            session_manager.append_debug_event(
+                self.session_id,
+                "bridge_error",
+                {"message": message or "Realtime bridge disconnected"},
             )
             await self._safe_emit(
                 {

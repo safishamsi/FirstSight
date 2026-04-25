@@ -122,6 +122,7 @@ Optional:
 | `mobile/CameraAccessAndroid/` | Current Android smart-glasses / phone prototype |
 | `mobile/CameraAccess/server/` | Current WebRTC signaling server for the existing browser viewer |
 | `backend/` | New FastAPI + Vision Agents scaffold for the planned backend |
+| `viewer/` | React debug dashboard for backend session state, transcripts, and processor signals |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Planned backend-first Python + React system |
 
 Compatibility note: `samples/CameraAccessAndroid` is kept as a forwarding symlink for older Android Studio projects and scripts. The canonical Android app path is `mobile/CameraAccessAndroid/`.
@@ -202,15 +203,18 @@ The intent is to keep the mobile app thin and move the augmentation logic into a
 Current backend status:
 
 - `POST /sessions` creates a local ingest session
-- `WS /sessions/{id}/stream` accepts streamed media events and acknowledges them
-- `GET /sessions/{id}` returns ingest counters and last-event state
-- Vision Agents provider forwarding is not wired yet, so the current proof point is `app -> backend ingress`, not `app -> backend -> live model`
+- `WS /sessions/{id}/stream` accepts Gemini-shaped streamed media events from the Android backend mode
+- `GET /sessions` and `GET /sessions/{id}` expose counters, transcripts, processor state, and retained debug events
+- the backend can bridge those streamed events into Gemini/OpenAI realtime providers
+- the current fast voice-return path uses transcript events plus Android TTS, not provider PCM playback yet
 
 ### Backend Scaffold Quick Start
 
 ```bash
 make backend-setup
 make backend-dev
+make viewer-install
+make viewer-dev
 ```
 
 Useful starting points:
@@ -220,6 +224,7 @@ Useful starting points:
 - [backend/app/agent_factory.py](backend/app/agent_factory.py)
 - [backend/app/examples/basic_video_agent.py](backend/app/examples/basic_video_agent.py)
 - [backend/Makefile](backend/Makefile)
+- [viewer/README.md](viewer/README.md)
 
 ---
 

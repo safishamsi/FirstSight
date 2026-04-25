@@ -34,6 +34,11 @@ class SessionRecord:
     text_messages: int = 0
     last_event_type: str | None = None
     recent_events: deque[str] = field(default_factory=lambda: deque(maxlen=10))
+    latest_user_transcript: str = ""
+    latest_assistant_transcript: str = ""
+    transcript_turns: deque[dict[str, str]] = field(default_factory=lambda: deque(maxlen=6))
+    processor_signals: dict[str, dict[str, object]] = field(default_factory=dict)
+    debug_events: deque[dict[str, object]] = field(default_factory=lambda: deque(maxlen=40))
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -57,6 +62,11 @@ class SessionRecord:
             "text_messages": self.text_messages,
             "last_event_type": self.last_event_type,
             "recent_events": list(self.recent_events),
+            "latest_user_transcript": self.latest_user_transcript,
+            "latest_assistant_transcript": self.latest_assistant_transcript,
+            "transcript_turns": list(self.transcript_turns),
+            "processor_signals": dict(self.processor_signals),
+            "debug_events": list(self.debug_events),
         }
 
 
@@ -109,6 +119,14 @@ class SessionManager:
     def list_ids(self) -> Iterable[str]:
         with self._lock:
             return list(self._sessions)
+
+    def list_records(self) -> list[SessionRecord]:
+        with self._lock:
+            return sorted(
+                self._sessions.values(),
+                key=lambda record: record.last_event_at,
+                reverse=True,
+            )
 
     def connect(self, session_id: str) -> SessionRecord | None:
         with self._lock:
@@ -172,6 +190,77 @@ class SessionManager:
             if record is None:
                 return None
             record.demo_guidance_sent = True
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def append_debug_event(
+        self,
+        session_id: str,
+        event_type: str,
+        payload: dict[str, object],
+    ) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.debug_events.append(
+                {
+                    "ts": utc_now_iso(),
+                    "type": event_type,
+                    "payload": payload,
+                }
+            )
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def update_input_transcript(self, session_id: str, text: str) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.latest_user_transcript += text
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def update_output_transcript(self, session_id: str, text: str) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.latest_assistant_transcript += text
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def complete_turn(self, session_id: str) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            user_text = record.latest_user_transcript.strip()
+            assistant_text = record.latest_assistant_transcript.strip()
+            if user_text or assistant_text:
+                record.transcript_turns.append(
+                    {
+                        "user_text": user_text,
+                        "assistant_text": assistant_text,
+                    }
+                )
+            record.latest_user_transcript = ""
+            record.latest_assistant_transcript = ""
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def update_processor_signal(
+        self,
+        session_id: str,
+        processor_name: str,
+        payload: dict[str, object],
+    ) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.processor_signals[processor_name] = payload
             record.last_event_at = utc_now_iso()
             return record
 

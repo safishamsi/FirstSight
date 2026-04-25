@@ -19,3 +19,10 @@ mobile/CameraAccessAndroid/app/build/
 # Python backend
 backend/.env
 backend/.venv*/
+
+# React viewer
+viewer/node_modules/
+viewer/dist/
+viewer/*.tsbuildinfo
+viewer/vite.config.js
+viewer/vite.config.d.ts

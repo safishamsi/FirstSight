@@ -256,6 +256,11 @@ async def create_session(
     )
 
 
+@router.get("/sessions", response_model=list[SessionStatusResponse])
+def list_sessions() -> list[SessionStatusResponse]:
+    return [SessionStatusResponse(**record.to_dict()) for record in session_manager.list_records()]
+
+
 @router.get("/sessions/{session_id}", response_model=SessionStatusResponse)
 def read_session(session_id: str) -> SessionStatusResponse:
     record = session_manager.get(session_id)
@@ -281,6 +286,17 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
         session_id,
         record.provider,
         ",".join(missing) or "none",
+    )
+    session_manager.append_debug_event(
+        session_id,
+        "stream_connected",
+        {
+            "provider": record.provider,
+            "bridge_expected": (
+                ("GEMINI_API_KEY" not in missing and settings.realtime_provider == "gemini")
+                or ("OPENAI_API_KEY" not in missing and settings.realtime_provider == "openai")
+            ),
+        },
     )
     send_lock = asyncio.Lock()
 
@@ -353,6 +369,11 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
                         session_id,
                         bridge is not None,
                     )
+                    session_manager.append_debug_event(
+                        session_id,
+                        "setup",
+                        {"bridge_active": bridge is not None},
+                    )
                     await send_json_safe(
                         {
                             "setupComplete": {
@@ -404,6 +425,11 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
                         session_id,
                         len(client_text),
                         client_text[:200],
+                    )
+                    session_manager.append_debug_event(
+                        session_id,
+                        "client_text",
+                        {"text": client_text},
                     )
                     await bridge.send_text(client_text)
                 elif event_type == "text_message" and client_text:
@@ -472,5 +498,6 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
         logger.info("stream_session disconnected session_id=%s", session_id)
     finally:
         session_manager.disconnect(session_id)
+        session_manager.append_debug_event(session_id, "stream_closed", {})
         await vision_bridge_manager.close(session_id)
         logger.info("stream_session closed session_id=%s", session_id)
