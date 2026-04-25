@@ -50,7 +50,7 @@ select {
   position: relative;
   z-index: 1;
   height: calc(100dvh - 16px);
-  border-radius: 28px;
+  border-radius: 0;
   background: #f5f5f7;
   color: #1b1f27;
   border: 1px solid rgba(80, 90, 120, 0.18);
@@ -335,6 +335,8 @@ select {
   height: 100%;
   object-fit: contain;
   display: block;
+  transform-origin: center center;
+  transition: transform 140ms ease;
 }
 
 .canvas-hud {
@@ -347,6 +349,13 @@ select {
 
 .canvas-hud-top {
   top: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.canvas-hud-group {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -371,6 +380,32 @@ select {
 .dock-card-overlay {
   backdrop-filter: blur(12px);
   min-height: 0;
+}
+
+.canvas-zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.canvas-zoom-button,
+.canvas-zoom-readout {
+  border: 1px solid #5c6f95;
+  background: rgba(18, 27, 42, 0.92);
+  color: #f2f6ff;
+  min-height: 36px;
+  padding: 0 12px;
+  box-shadow: none;
+}
+
+.canvas-zoom-button {
+  min-width: 36px;
+}
+
+.canvas-zoom-readout {
+  min-width: 72px;
+  letter-spacing: 0.08em;
 }
 
 .dock-card p {
@@ -475,6 +510,15 @@ select {
 
   .canvas-hud-bottom {
     grid-template-columns: 1fr;
+  }
+
+  .canvas-hud-top {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .canvas-zoom-controls {
+    align-self: flex-end;
   }
 
   .canvas-preview-shell {

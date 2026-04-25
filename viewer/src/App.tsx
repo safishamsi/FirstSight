@@ -62,6 +62,7 @@ function App() {
   const [selectedSession, setSelectedSession] = useState<SessionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(document.visibilityState === "visible");
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -159,6 +160,8 @@ function App() {
           selectedSession.preview_frame_updated_at || selectedSession.last_event_at,
         )}`
       : "";
+
+  const zoomPercent = Math.round(zoomLevel * 100);
 
   return (
     <main className="app-shell">
@@ -274,6 +277,7 @@ function App() {
                   <div className="canvas-preview-shell">
                     <img
                       className="canvas-preview"
+                      style={{ transform: `scale(${zoomLevel})` }}
                       src={previewFrameUrl}
                       alt="Annotated realtime preview"
                     />
@@ -289,14 +293,40 @@ function App() {
                 )}
 
                 <div className="canvas-hud canvas-hud-top">
-                  <div className="telemetry-box telemetry-box-compact">
-                    <span>{selectedSession?.video_frames ? "live feed" : "idle feed"}</span>
-                    <strong>{selectedSession?.video_frames || 0} frames</strong>
+                  <div className="canvas-hud-group">
+                    <div className="telemetry-box telemetry-box-compact">
+                      <span>{selectedSession?.video_frames ? "live feed" : "idle feed"}</span>
+                      <strong>{selectedSession?.video_frames || 0} frames</strong>
+                    </div>
+                    <div className="canvas-chip">audio {selectedSession?.audio_chunks || 0}</div>
+                    <div className="canvas-chip">text {selectedSession?.text_messages || 0}</div>
+                    <div className="canvas-chip">
+                      event {selectedSession?.last_event_type || "none"}
+                    </div>
                   </div>
-                  <div className="canvas-chip">audio {selectedSession?.audio_chunks || 0}</div>
-                  <div className="canvas-chip">text {selectedSession?.text_messages || 0}</div>
-                  <div className="canvas-chip">
-                    event {selectedSession?.last_event_type || "none"}
+
+                  <div className="canvas-zoom-controls" aria-label="Preview zoom controls">
+                    <button
+                      className="canvas-zoom-button"
+                      type="button"
+                      onClick={() => setZoomLevel((current) => Math.max(1, current - 0.2))}
+                    >
+                      -
+                    </button>
+                    <button
+                      className="canvas-zoom-readout"
+                      type="button"
+                      onClick={() => setZoomLevel(1)}
+                    >
+                      {zoomPercent}%
+                    </button>
+                    <button
+                      className="canvas-zoom-button"
+                      type="button"
+                      onClick={() => setZoomLevel((current) => Math.min(3, current + 0.2))}
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
 
