@@ -412,10 +412,13 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
                             }
                         }
                     )
-                    if bridge is not None:
-                        await bridge.send_initial_prompt()
-                    elif not updated.welcome_sent:
+                    if not updated.welcome_sent:
                         session_manager.mark_welcome_sent(session_id)
+                        session_manager.append_debug_event(
+                            session_id,
+                            "static_welcome",
+                            {"bridge_active": bridge is not None},
+                        )
                         await send_json_safe(
                             {
                                 "serverContent": {
