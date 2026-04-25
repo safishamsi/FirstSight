@@ -124,6 +124,8 @@ Optional:
 | `backend/` | New FastAPI + Vision Agents scaffold for the planned backend |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Planned backend-first Python + React system |
 
+Compatibility note: `samples/CameraAccessAndroid` is kept as a forwarding symlink for older Android Studio projects and scripts. The canonical Android app path is `mobile/CameraAccessAndroid/`.
+
 ## Product Direction
 
 The long-term product direction for this repo is a first-aid guidance system:
