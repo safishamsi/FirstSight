@@ -15,6 +15,11 @@ type ProcessorSignal = {
   person_count?: number;
 };
 
+type TranscriptTurn = {
+  user_text: string;
+  assistant_text: string;
+};
+
 type SessionStatus = {
   session_id: string;
   provider: string;
@@ -30,10 +35,7 @@ type SessionStatus = {
   recent_events: string[];
   latest_user_transcript: string;
   latest_assistant_transcript: string;
-  transcript_turns: Array<{
-    user_text: string;
-    assistant_text: string;
-  }>;
+  transcript_turns: TranscriptTurn[];
   processor_signals: Record<string, ProcessorSignal>;
   debug_events: DebugEvent[];
   preview_frame_available: boolean;
@@ -42,7 +44,9 @@ type SessionStatus = {
   vision_agent_error: string | null;
 };
 
-const backendUrl = (import.meta.env.VITE_BACKEND_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8000";
+const backendUrl =
+  (import.meta.env.VITE_BACKEND_URL as string | undefined)?.replace(/\/$/, "") ||
+  "http://localhost:8000";
 
 async function fetchJson<T>(path: string): Promise<T> {
   const response = await fetch(`${backendUrl}${path}`);
@@ -64,12 +68,10 @@ function App() {
     const loadSessions = async () => {
       try {
         const nextSessions = await fetchJson<SessionStatus[]>("/sessions");
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
         setSessions(nextSessions);
-        setError(null);
         setSelectedSessionId((current) => current || nextSessions[0]?.session_id || "");
+        setError(null);
       } catch (nextError) {
         if (!cancelled) {
           setError(nextError instanceof Error ? nextError.message : "Failed to load sessions");
@@ -115,12 +117,14 @@ function App() {
     };
   }, [selectedSessionId]);
 
+  const selectedTurn =
+    selectedSession?.transcript_turns[selectedSession.transcript_turns.length - 1];
+
   const processorSignals = useMemo(
     () => Object.values(selectedSession?.processor_signals || {}),
     [selectedSession],
   );
-  const lastCompletedTurn =
-    selectedSession?.transcript_turns[selectedSession.transcript_turns.length - 1];
+
   const previewFrameUrl =
     selectedSessionId && selectedSession?.preview_frame_available
       ? `${backendUrl}/sessions/${selectedSessionId}/frame?ts=${encodeURIComponent(
@@ -129,159 +133,236 @@ function App() {
       : "";
 
   return (
-    <main className="page">
-      <header className="hero">
-        <div>
-          <p className="eyebrow">DroopDetection</p>
-          <h1>Vision Agent Debug Dashboard</h1>
-          <p className="subtitle">
-            Live backend sessions, transcripts, and processor state.
-          </p>
-        </div>
-        <div className="hero-controls">
-          <label className="field">
-            <span>Backend</span>
-            <input value={backendUrl} readOnly />
-          </label>
-          <label className="field">
-            <span>Session</span>
-            <select
-              value={selectedSessionId}
-              onChange={(event) => setSelectedSessionId(event.target.value)}
-            >
-              <option value="">No session selected</option>
-              {sessions.map((session) => (
-                <option key={session.session_id} value={session.session_id}>
-                  {session.session_id.slice(0, 8)} · {session.status}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </header>
+    <main className="app-shell">
+      <div className="ambient-grid" />
+      <div className="top-label">◫ Vision Agent Workspace</div>
 
-      {error ? <section className="panel error">{error}</section> : null}
-
-      <section className="grid stats-grid">
-        <StatCard label="Provider" value={selectedSession?.provider || "idle"} />
-        <StatCard label="Status" value={selectedSession?.status || "idle"} />
-        <StatCard label="Connected" value={String(selectedSession?.connected_clients || 0)} />
-        <StatCard label="Video Frames" value={String(selectedSession?.video_frames || 0)} />
-        <StatCard label="Audio Chunks" value={String(selectedSession?.audio_chunks || 0)} />
-        <StatCard label="Last Event" value={selectedSession?.last_event_type || "none"} />
-      </section>
-
-      <section className="grid content-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <h2>Annotated Preview</h2>
-            <span className="muted">
-              {selectedSession?.preview_frame_available ? "live pose overlay" : "waiting for frame"}
-            </span>
+      <section className="studio-shell">
+        <header className="studio-header">
+          <div className="studio-brand">
+            <p className="studio-kicker">Smart Glasses Safety Runtime</p>
+            <h1>Realtime CV Overlay Monitor</h1>
           </div>
-          {previewFrameUrl ? (
-            <div className="preview-frame-shell">
-              <img className="preview-frame" src={previewFrameUrl} alt="Annotated session preview" />
+
+          <nav className="studio-nav" aria-label="Viewer sections">
+            <button className="nav-tab">VIEW</button>
+            <button className="nav-tab">STREAMS</button>
+            <button className="nav-tab nav-tab-active">DEBUG</button>
+          </nav>
+
+          <div className="studio-controls">
+            <div className="control-block">
+              <span>Backend</span>
+              <input value={backendUrl} readOnly />
             </div>
-          ) : (
-            <p className="empty">No annotated preview frame available yet.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <h2>Transcripts</h2>
-            <span className="muted">
-              {selectedSession?.vision_agent_error
-                ? `bridge error: ${selectedSession.vision_agent_error}`
-                : selectedSession?.vision_agent_started
-                  ? "vision runtime started"
-                  : "session adapter only"}
-            </span>
-          </div>
-          <TranscriptBlock
-            label="Last User"
-            text={lastCompletedTurn?.user_text || "No completed user turn yet."}
-          />
-          <TranscriptBlock
-            label="Last Assistant"
-            text={lastCompletedTurn?.assistant_text || "No completed assistant turn yet."}
-          />
-          <TranscriptBlock
-            label="Live User"
-            text={selectedSession?.latest_user_transcript || latestText(selectedSession?.debug_events, "input_transcription")}
-          />
-          <TranscriptBlock
-            label="Live Assistant"
-            text={selectedSession?.latest_assistant_transcript || latestText(selectedSession?.debug_events, "output_transcription")}
-          />
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <h2>Processor Signals</h2>
-            <span className="muted">{processorSignals.length || 0} active</span>
-          </div>
-          {processorSignals.length ? (
-            <div className="signal-list">
-              {processorSignals.map((signal) => (
-                <article key={signal.name} className="signal-card">
-                  <div className="signal-topline">
-                    <strong>{signal.name || "processor"}</strong>
-                    <span className={signal.over_threshold ? "pill danger" : "pill ok"}>
-                      {signal.over_threshold ? "over threshold" : "normal"}
-                    </span>
-                  </div>
-                  <p>{signal.message || "No processor message yet."}</p>
-                  <div className="signal-metrics">
-                    <span>people: {typeof signal.person_count === "number" ? signal.person_count : "n/a"}</span>
-                    <span>score: {formatMetric(signal.score)}</span>
-                    <span>threshold: {formatMetric(signal.threshold)}</span>
-                  </div>
-                </article>
-              ))}
+            <div className="control-block">
+              <span>Session</span>
+              <select
+                value={selectedSessionId}
+                onChange={(event) => setSelectedSessionId(event.target.value)}
+              >
+                <option value="">No session selected</option>
+                {sessions.map((session) => (
+                  <option key={session.session_id} value={session.session_id}>
+                    {session.session_id.slice(0, 8)} · {session.status}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <p className="empty">No processor output yet.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <h2>Recent Events</h2>
-            <span className="muted">{selectedSession?.debug_events.length || 0} retained</span>
           </div>
-          <div className="event-list">
-            {(selectedSession?.debug_events || []).slice().reverse().map((event, index) => (
-              <article key={`${event.ts}-${index}`} className="event-row">
-                <div className="event-meta">
-                  <strong>{event.type}</strong>
-                  <span>{new Date(event.ts).toLocaleTimeString()}</span>
+        </header>
+
+        <div className="studio-body">
+          <aside className="rail rail-left">
+            <section className="panel panel-tight">
+              <div className="section-title">
+                <span className="section-label">Runtime</span>
+                <strong>{selectedSession?.provider || "offline"}</strong>
+              </div>
+              <div className="runtime-status">
+                <div className={`status-dot status-${selectedSession?.status || "idle"}`} />
+                <div>
+                  <strong>{selectedSession?.status || "idle"}</strong>
+                  <p>
+                    {selectedSession?.vision_agent_error
+                      ? selectedSession.vision_agent_error
+                      : selectedSession?.vision_agent_started
+                        ? "Realtime bridge live"
+                        : "Waiting for backend session"}
+                  </p>
                 </div>
-                <pre>{JSON.stringify(event.payload, null, 2)}</pre>
-              </article>
-            ))}
-          </div>
-        </section>
+              </div>
+            </section>
+
+            <section className="panel panel-tight">
+              <div className="section-title">
+                <span className="section-label">Sessions</span>
+                <strong>{sessions.length}</strong>
+              </div>
+              <div className="session-list">
+                {sessions.length ? (
+                  sessions.map((session) => (
+                    <button
+                      key={session.session_id}
+                      className={
+                        session.session_id === selectedSessionId
+                          ? "session-card session-card-active"
+                          : "session-card"
+                      }
+                      onClick={() => setSelectedSessionId(session.session_id)}
+                    >
+                      <div className="session-card-top">
+                        <strong>{session.session_id.slice(0, 8)}</strong>
+                        <span>{session.status}</span>
+                      </div>
+                      <p>{session.provider.toUpperCase()} · {session.video_frames} frames</p>
+                    </button>
+                  ))
+                ) : (
+                  <p className="panel-empty">No sessions yet.</p>
+                )}
+              </div>
+            </section>
+
+            <section className="panel panel-tight">
+              <div className="section-title">
+                <span className="section-label">Last Turn</span>
+                <strong>{selectedSession?.transcript_turns.length || 0}</strong>
+              </div>
+              <TranscriptLine
+                label="Wearer"
+                text={selectedTurn?.user_text || "No completed user turn yet."}
+              />
+              <TranscriptLine
+                label="Agent"
+                text={selectedTurn?.assistant_text || "No completed assistant turn yet."}
+              />
+            </section>
+          </aside>
+
+          <section className="canvas-column">
+            <div className="canvas-panel">
+              <div className="canvas-toolbar">
+                <div className="telemetry-box">
+                  <span>FPS target: {selectedSession?.video_frames ? "live" : "idle"}</span>
+                  <strong>Frames {selectedSession?.video_frames || 0}</strong>
+                </div>
+                <div className="canvas-chip">audio {selectedSession?.audio_chunks || 0}</div>
+                <div className="canvas-chip">text {selectedSession?.text_messages || 0}</div>
+                <div className="canvas-chip">event {selectedSession?.last_event_type || "none"}</div>
+              </div>
+
+              <div className="canvas-stage">
+                {previewFrameUrl ? (
+                  <img
+                    className="canvas-preview"
+                    src={previewFrameUrl}
+                    alt="Annotated realtime preview"
+                  />
+                ) : (
+                  <div className="canvas-empty">
+                    <strong>Awaiting annotated frame</strong>
+                    <p>
+                      Start a Vision Agent Backend session with the pose overlay processor
+                      enabled to see the realtime preview here.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {error ? <section className="panel panel-error">{error}</section> : null}
+          </section>
+
+          <aside className="rail rail-right">
+            <section className="panel">
+              <div className="section-title">
+                <span className="section-label">Processor Signals</span>
+                <strong>{processorSignals.length}</strong>
+              </div>
+              {processorSignals.length ? (
+                <div className="signal-list">
+                  {processorSignals.map((signal) => (
+                    <article key={signal.name} className="signal-card">
+                      <div className="signal-header">
+                        <strong>{signal.name || "processor"}</strong>
+                        <span
+                          className={
+                            signal.over_threshold ? "pill pill-danger" : "pill pill-ok"
+                          }
+                        >
+                          {signal.over_threshold ? "active" : "normal"}
+                        </span>
+                      </div>
+                      <p>{signal.message || "No processor message yet."}</p>
+                      <div className="metric-row">
+                        <span>people {metricText(signal.person_count)}</span>
+                        <span>score {metricText(signal.score)}</span>
+                        <span>threshold {metricText(signal.threshold)}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="panel-empty">No processor output yet.</p>
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="section-title">
+                <span className="section-label">Live Transcript</span>
+                <strong>{selectedSession?.connected_clients || 0} client</strong>
+              </div>
+              <TranscriptLine
+                label="Wearer"
+                text={
+                  selectedSession?.latest_user_transcript ||
+                  latestText(selectedSession?.debug_events, "input_transcription") ||
+                  "No live user transcript."
+                }
+              />
+              <TranscriptLine
+                label="Agent"
+                text={
+                  selectedSession?.latest_assistant_transcript ||
+                  latestText(selectedSession?.debug_events, "output_transcription") ||
+                  "No live assistant transcript."
+                }
+              />
+            </section>
+
+            <section className="panel">
+              <div className="section-title">
+                <span className="section-label">Event Trace</span>
+                <strong>{selectedSession?.debug_events.length || 0}</strong>
+              </div>
+              <div className="event-list">
+                {(selectedSession?.debug_events || [])
+                  .slice()
+                  .reverse()
+                  .map((event, index) => (
+                    <article key={`${event.ts}-${index}`} className="event-card">
+                      <div className="event-header">
+                        <strong>{event.type}</strong>
+                        <span>{new Date(event.ts).toLocaleTimeString()}</span>
+                      </div>
+                      <pre>{JSON.stringify(event.payload, null, 2)}</pre>
+                    </article>
+                  ))}
+              </div>
+            </section>
+          </aside>
+        </div>
       </section>
     </main>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function TranscriptLine({ label, text }: { label: string; text: string }) {
   return (
-    <article className="stat-card">
+    <div className="transcript-line">
       <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
-  );
-}
-
-function TranscriptBlock({ label, text }: { label: string; text: string }) {
-  return (
-    <div className="transcript-block">
-      <span>{label}</span>
-      <p>{text || "No transcript yet."}</p>
+      <p>{text}</p>
     </div>
   );
 }
@@ -292,7 +373,7 @@ function latestText(events: DebugEvent[] | undefined, eventType: string): string
   return typeof text === "string" ? text : "";
 }
 
-function formatMetric(value: unknown): string {
+function metricText(value: unknown): string {
   return typeof value === "number" ? value.toFixed(2) : "n/a";
 }
 

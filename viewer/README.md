@@ -17,6 +17,11 @@ npm install
 npm run dev
 ```
 
+Default local URL:
+```text
+http://localhost:5174
+```
+
 Backend URL:
 ```bash
 cp .env.example .env
