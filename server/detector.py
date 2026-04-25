@@ -23,7 +23,7 @@ class HeadDetector:
 
         self.model = Darknet(cfg_path, img_size).to(self.device)
         state = torch.load(weights_path, map_location=self.device, weights_only=False)
-        self.model.load_state_dict(state["model"])
+        self.model.load_state_dict(state["model"] if "model" in state else state)
         self.model.eval()
         if self.device.type != "cpu":
             self.model.half()

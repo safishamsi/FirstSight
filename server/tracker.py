@@ -14,6 +14,8 @@ class HeadTracker:
         with open(config_path) as f:
             cfg = yaml.safe_load(f)["DEEPSORT"]
         reid_ckpt = str(config_path.parent.parent / cfg["REID_CKPT"])
+        if not Path(reid_ckpt).exists():
+            raise FileNotFoundError(f"DeepSort ReID weights not found: {reid_ckpt}")
         self.tracker = DeepSort(
             reid_ckpt,
             max_dist=cfg["MAX_DIST"],
