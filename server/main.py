@@ -1,5 +1,6 @@
 import sys
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import cv2
@@ -7,26 +8,27 @@ import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "heart_rate_detection"))
-sys.path.insert(0, str(Path(__file__).parent.parent))
+BASE = Path(__file__).parent.parent
+sys.path.insert(0, str(BASE / "vendor"))
+sys.path.insert(0, str(BASE))
 
 from server.detector import HeadDetector
 from server.tracker import HeadTracker
 from server.pipeline import HeartRatePipeline
 
-BASE = Path(__file__).parent.parent.parent / "heart_rate_detection"
 
-app = FastAPI()
-
-
-def build_pipeline(mode: str = "adult") -> HeartRatePipeline:
-    detector = HeadDetector(
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.detector = HeadDetector(
         cfg_path=str(BASE / "config/yolor_p6_head.cfg"),
         weights_path=str(BASE / "weights/yolor_head.pt"),
         device="cpu",
     )
-    tracker = HeadTracker(config_path=str(BASE / "config/deep_sort.yaml"))
-    return HeartRatePipeline(detector=detector, tracker=tracker, mode=mode)
+    app.state.tracker = HeadTracker(config_path=str(BASE / "config/deep_sort.yaml"))
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.websocket("/ws")
@@ -34,7 +36,11 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     mode = websocket.query_params.get("mode", "adult")
     try:
-        pipeline = build_pipeline(mode=mode)
+        pipeline = HeartRatePipeline(
+            detector=websocket.app.state.detector,
+            tracker=websocket.app.state.tracker,
+            mode=mode,
+        )
     except ValueError as e:
         await websocket.close(code=1008, reason=str(e))
         return
@@ -45,7 +51,6 @@ async def websocket_endpoint(websocket: WebSocket):
             frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
             if frame is None:
                 continue
-
             for result in pipeline.process_frame(frame):
                 await websocket.send_text(json.dumps({
                     "track_id": result.track_id,
