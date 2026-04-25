@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,6 +75,7 @@ fun StreamScreen(
     webrtcViewModel: WebRTCSessionViewModel = viewModel(),
 ) {
     var aiMode by remember { mutableStateOf(SettingsManager.aiBackendMode) }
+    var showVisionAgentDebugPanel by remember { mutableStateOf(false) }
     val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
     val geminiUiState by geminiViewModel.uiState.collectAsStateWithLifecycle()
     val visionAgentUiState by visionAgentViewModel.uiState.collectAsStateWithLifecycle()
@@ -180,15 +182,29 @@ fun StreamScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     AiModeBadge(mode = aiMode)
-                    IconButton(
-                        onClick = { wearablesViewModel.showSettings() },
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(28.dp),
-                        )
+                    Row {
+                        if (aiMode == VisionAgentMode.VISION_AGENT_BACKEND) {
+                            IconButton(
+                                onClick = { showVisionAgentDebugPanel = !showVisionAgentDebugPanel },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.BugReport,
+                                    contentDescription = "Vision Agent debug",
+                                    tint = androidx.compose.ui.graphics.Color.White,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                        }
+                        IconButton(
+                            onClick = { wearablesViewModel.showSettings() },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = androidx.compose.ui.graphics.Color.White,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -205,6 +221,7 @@ fun StreamScreen(
                             geminiViewModel.clearDetectionOverlay()
                             SettingsManager.aiBackendMode = selectedMode
                             aiMode = selectedMode
+                            showVisionAgentDebugPanel = false
                         }
                     },
                 )
@@ -217,6 +234,10 @@ fun StreamScreen(
                 if (aiMode == VisionAgentMode.VISION_AGENT_BACKEND && visionAgentUiState.isVisionAgentActive) {
                     Spacer(modifier = Modifier.height(4.dp))
                     VisionAgentOverlay(uiState = visionAgentUiState)
+                    if (showVisionAgentDebugPanel) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        VisionAgentDebugPanel(uiState = visionAgentUiState)
+                    }
                 }
 
                 // WebRTC overlay
