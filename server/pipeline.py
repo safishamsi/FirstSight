@@ -12,6 +12,8 @@ ROI_W, ROI_H = 320, 240
 H_PAD, W_PAD = 60, 40
 MOTION_THRESHOLD = 5.0
 MOTION_GRACE_FRAMES = 10  # brief motion keeps buffer; beyond this, buffer is stale and cleared
+CHANNEL_WEIGHTS = np.array([0.1, 0.8, 0.1], dtype=np.float32)
+DETECTION_SKIP = 10  # run YOLOR every Nth frame; DeepSort predicts in between
 
 FREQ_RANGES = {
     "adult": (1.0, 2.0),
@@ -48,6 +50,7 @@ class HeartRatePipeline:
         self.signal_processors: dict[int, SignalProcessor] = {}
         self.prev_rois: dict[int, np.ndarray] = {}
         self._motion_streak: dict[int, int] = defaultdict(int)
+        self._frame_count = 0
 
     def _crop_roi(self, frame: np.ndarray, bbox: tuple[int, int, int, int]) -> Optional[np.ndarray]:
         x1, y1, x2, y2 = bbox
@@ -89,7 +92,11 @@ class HeartRatePipeline:
     def process_frame(self, frame: np.ndarray) -> list[PipelineResult]:
         if frame is None or frame.ndim != 3:
             return []
-        detections = self.detector.detect(frame)
+        self._frame_count += 1
+        if self._frame_count % DETECTION_SKIP == 0:
+            detections = self.detector.detect(frame)
+        else:
+            detections = []
         tracks = self.tracker.update(detections, frame)
         results = []
 
@@ -110,7 +117,7 @@ class HeartRatePipeline:
             # Blur removes JPEG block artifacts before pyramid decomposition
             roi_smooth = cv2.GaussianBlur(roi, (3, 3), 0)
             gauss = build_gaussian_pyramid(roi_smooth, PYRAMID_LEVELS + 1)[PYRAMID_LEVELS]
-            self.buffers[track_id].append(gauss)
+            self.buffers[track_id].append(gauss * CHANNEL_WEIGHTS)
 
             if len(self.buffers[track_id]) == BUFFER_SIZE:
                 buf = np.array(self.buffers[track_id], dtype=np.float32)

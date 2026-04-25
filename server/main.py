@@ -35,10 +35,12 @@ app = FastAPI(lifespan=lifespan)
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     mode = websocket.query_params.get("mode", "adult")
+    fps = float(websocket.query_params.get("fps", "30.0"))
     try:
         pipeline = HeartRatePipeline(
             detector=websocket.app.state.detector,
             tracker=HeadTracker(config_path=TRACKER_CONFIG),
+            fps=fps,
             mode=mode,
         )
     except ValueError as e:
