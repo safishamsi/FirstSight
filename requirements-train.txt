@@ -1,0 +1,7 @@
+-r requirements.txt
+torch>=2.3.0
+torchvision>=0.18.0
+kagglehub>=0.3.0
+scikit-learn>=1.5.0
+matplotlib>=3.9.0
+tqdm>=4.66.0
