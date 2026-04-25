@@ -16,7 +16,29 @@ def test_detects_known_frequency():
     buf = make_buffer(fps=30.0, n=150, target_hz=1.2)  # 72 BPM
     p = SignalProcessor(fps=30.0, buffer_size=150, min_freq=1.0, max_freq=2.0)
     result = p.compute(buf)
-    assert abs(result.bpm - 72.0) < 5.0
+    assert abs(result.bpm - 72.0) < 1.0
+
+
+# 150 frames @ 30fps → FFT bin width = 0.2 Hz = 12 BPM.
+# These frequencies sit exactly on a bin, so the algorithm must nail them to within 1 BPM.
+@pytest.mark.parametrize("hz,expected_bpm", [
+    (1.2, 72.0),
+    (1.6, 96.0),
+    (1.8, 108.0),
+])
+def test_bpm_accuracy_adult(hz, expected_bpm):
+    buf = make_buffer(fps=30.0, n=150, target_hz=hz)
+    p = SignalProcessor(fps=30.0, buffer_size=150, min_freq=1.0, max_freq=2.0)
+    result = p.compute(buf)
+    assert abs(result.bpm - expected_bpm) < 1.0, f"Expected {expected_bpm} BPM, got {result.bpm:.1f}"
+
+
+def test_bpm_accuracy_neonate():
+    # 2.2 Hz = 132 BPM, exactly on a bin
+    buf = make_buffer(fps=30.0, n=150, target_hz=2.2)
+    p = SignalProcessor(fps=30.0, buffer_size=150, min_freq=2.0, max_freq=2.67)
+    result = p.compute(buf)
+    assert abs(result.bpm - 132.0) < 1.0, f"Expected 132.0 BPM, got {result.bpm:.1f}"
 
 
 def test_confidence_high_for_clean_signal():
