@@ -19,11 +19,8 @@ Minimal backend scaffold for the planned smart-glasses realtime agent platform.
 From the `backend/` directory:
 
 ```bash
-uv venv --python 3.13 .venv
-source .venv/bin/activate
-uv pip install -e ".[dev]"
-cp .env.example .env
-uvicorn app.main:app --reload
+make setup
+make dev
 ```
 
 Health check:
@@ -35,7 +32,13 @@ curl http://127.0.0.1:8000/health
 Vision Agents starter:
 
 ```bash
-python -m app.examples.basic_video_agent
+make example
+```
+
+Tests:
+
+```bash
+make test
 ```
 
 ## Notes
@@ -44,9 +47,4 @@ python -m app.examples.basic_video_agent
 - The FastAPI service is intentionally lightweight and does not require a live Stream or model session to boot.
 - The Vision Agents example is the starting point for the realtime backend, not the finished architecture.
 - The face droop processor is currently a scaffold seam for your real model.
-
-## How To Test
-
-```bash
-python -m pytest tests
-```
+- `make clean` removes the backend virtualenv and Python caches.

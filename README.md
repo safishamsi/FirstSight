@@ -111,12 +111,8 @@ The intent is to keep the mobile app thin and move the augmentation logic into a
 ### Backend Scaffold Quick Start
 
 ```bash
-cd backend
-uv venv --python 3.13 .venv
-source .venv/bin/activate
-uv pip install -e ".[dev]"
-cp .env.example .env
-uvicorn app.main:app --reload
+make backend-setup
+make backend-dev
 ```
 
 Useful starting points:
@@ -125,6 +121,7 @@ Useful starting points:
 - [backend/app/main.py](backend/app/main.py)
 - [backend/app/agent_factory.py](backend/app/agent_factory.py)
 - [backend/app/examples/basic_video_agent.py](backend/app/examples/basic_video_agent.py)
+- [backend/Makefile](backend/Makefile)
 
 ---
 
