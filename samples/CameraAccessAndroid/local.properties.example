@@ -1,0 +1,12 @@
+# Copy this file to local.properties and fill in your values.
+# local.properties is gitignored and should not be committed.
+
+# GitHub Packages token for downloading the Android DAT SDK.
+github_token=YOUR_GITHUB_TOKEN
+
+# Meta Wearables DAT app registration values.
+# In Developer Mode you can keep mwdat_application_id=0.
+# For production / release-channel use, obtain both values from Wearables Developer Center.
+mwdat_application_id=0
+mwdat_client_token=
+

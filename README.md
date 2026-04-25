@@ -25,6 +25,95 @@ If you are joining this repo as a teammate, start here:
 - [`samples/CameraAccessAndroid/`](samples/CameraAccessAndroid/) for the current Android prototype
 - [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](samples/CameraAccess/CameraAccess/WebRTC/README.md) for the current browser-viewer path
 
+## Secrets And Tokens
+
+Start by copying the root inventory file:
+
+```bash
+cp .env.example .env
+```
+
+That root `.env` is the teammate-facing checklist for all keys used in this repo. The apps do not all read it directly, so use it as the place you collect values, then copy them into the runtime-specific files below.
+
+### Where Each Secret Actually Goes
+
+| Surface | File | What goes there |
+|------|---------|---------|
+| Root inventory | `.env` | Shared local checklist for Gemini, OpenAI, Stream, OpenClaw, and Meta/DAT values |
+| Backend | `backend/.env` | Vision Agents / FastAPI runtime config |
+| iOS sample app | `samples/CameraAccess/CameraAccess/Secrets.swift` | `geminiAPIKey`, optional OpenClaw config, optional WebRTC signaling URL |
+| Android sample app | `samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt` | `geminiAPIKey`, optional OpenClaw config, optional WebRTC signaling URL |
+| Android DAT SDK | `samples/CameraAccessAndroid/local.properties` | `github_token`, `mwdat_application_id`, `mwdat_client_token` |
+
+### Backend `.env`
+
+The backend already has a runnable template:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Or use the Make target:
+
+```bash
+make backend-setup
+```
+
+Fill in these keys for the backend as needed:
+
+- `GEMINI_API_KEY` for Gemini realtime
+- `OPENAI_API_KEY` for OpenAI realtime
+- `STREAM_API_KEY` and `STREAM_API_SECRET` for the Vision Agents transport layer
+
+### Meta / DAT Android Tokens
+
+The Android sample needs two different things:
+
+1. A GitHub Packages token so Gradle can download the DAT Android SDK.
+2. Meta Wearables app registration values when you are not relying on Developer Mode.
+
+Create the Android local properties file:
+
+```bash
+cp samples/CameraAccessAndroid/local.properties.example samples/CameraAccessAndroid/local.properties
+```
+
+Then fill in:
+
+- `github_token`
+  - create a GitHub Personal Access Token with `read:packages`
+  - GitHub path: `Settings -> Developer settings -> Personal access tokens`
+- `mwdat_application_id`
+  - use `0` in Developer Mode
+  - for production, get the real value from Wearables Developer Center
+- `mwdat_client_token`
+  - empty in simple Developer Mode workflows if not required by your current setup
+  - for production, get the real value from Wearables Developer Center
+
+Important:
+
+- `samples/CameraAccessAndroid/settings.gradle.kts` reads `github_token`
+- `samples/CameraAccessAndroid/app/build.gradle.kts` reads `mwdat_application_id` and `mwdat_client_token`
+- `samples/CameraAccessAndroid/app/src/main/AndroidManifest.xml` injects those into the DAT manifest metadata
+
+### iOS And Android App Secrets
+
+Create the sample app secrets files:
+
+```bash
+cp samples/CameraAccess/CameraAccess/Secrets.swift.example samples/CameraAccess/CameraAccess/Secrets.swift
+cp samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt.example samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt
+```
+
+At minimum, set:
+
+- `geminiAPIKey`
+
+Optional:
+
+- OpenClaw host and tokens
+- WebRTC signaling URL
+
 ## Repo Map
 
 | Path | Purpose |
