@@ -16,8 +16,8 @@ VIDEO_PATH = Path("/home/safi/heart_rate_detection/demo/baby.mp4")
 
 
 @pytest.mark.skipif(
-    not WEIGHTS_PATH.exists(),
-    reason="Weights not present — copy from heart_rate_detection/weights/ or re-download"
+    not WEIGHTS_PATH.exists() or not VIDEO_PATH.exists(),
+    reason="Weights or test video not present"
 )
 def test_neonatal_bpm_in_expected_range():
     detector = HeadDetector(
@@ -32,16 +32,18 @@ def test_neonatal_bpm_in_expected_range():
     cap = cv2.VideoCapture(str(VIDEO_PATH))
     bpm_readings = []
 
-    for _ in range(BUFFER_SIZE + 30):
-        ret, frame = cap.read()
-        if not ret:
-            break
-        for result in pipeline.process_frame(frame):
-            if result.confidence > 0.1:
-                bpm_readings.append(result.bpm)
-
-    cap.release()
+    try:
+        for _ in range(BUFFER_SIZE + 30):
+            ret, frame = cap.read()
+            if not ret:
+                break
+            for result in pipeline.process_frame(frame):
+                if result.confidence > 0.1:
+                    bpm_readings.append(result.bpm)
+    finally:
+        cap.release()
 
     assert len(bpm_readings) > 0, "No BPM readings produced — check head detection"
     avg_bpm = sum(bpm_readings) / len(bpm_readings)
-    assert 100 <= avg_bpm <= 175, f"BPM {avg_bpm:.1f} outside expected neonatal range"
+    # Neonate bandpass cap is 2.67 Hz = 160.2 BPM — upper bound reflects pipeline limit
+    assert 100 <= avg_bpm <= 160, f"BPM {avg_bpm:.1f} outside expected neonatal range"
