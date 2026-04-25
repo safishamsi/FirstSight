@@ -84,7 +84,16 @@ function App() {
         const nextSessions = await fetchJson<SessionStatus[]>("/sessions");
         if (cancelled) return;
         setSessions(nextSessions);
-        setSelectedSessionId((current) => current || nextSessions[0]?.session_id || "");
+        setSelectedSessionId((current) => {
+          if (!nextSessions.length) {
+            return "";
+          }
+          if (!current) {
+            return nextSessions[0].session_id;
+          }
+          const stillExists = nextSessions.some((session) => session.session_id === current);
+          return stillExists ? current : nextSessions[0].session_id;
+        });
         setError(null);
       } catch (nextError) {
         if (!cancelled) {
@@ -118,6 +127,11 @@ function App() {
         }
       } catch (nextError) {
         if (!cancelled) {
+          if (nextError instanceof Error && nextError.message.startsWith("404")) {
+            setSelectedSession(null);
+            setSelectedSessionId((current) => (current === selectedSessionId ? "" : current));
+            return;
+          }
           setError(nextError instanceof Error ? nextError.message : "Failed to load session");
         }
       }
