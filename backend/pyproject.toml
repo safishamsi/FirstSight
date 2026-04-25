@@ -13,7 +13,7 @@ dependencies = [
   "pydantic-settings>=2.4,<3.0",
   "python-dotenv>=1.0,<2.0",
   "uvicorn[standard]>=0.30,<1.0",
-  "vision-agents[gemini,getstream,openai]>=0.5.4,<1.0"
+  "vision-agents[elevenlabs,fast-whisper,gemini,getstream,openai]>=0.5.4,<1.0"
 ]
 
 [project.optional-dependencies]

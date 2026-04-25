@@ -63,7 +63,16 @@ Fill in these keys for the backend as needed:
 
 - `GEMINI_API_KEY` for Gemini realtime
 - `OPENAI_API_KEY` for OpenAI realtime
+- `ELEVENLABS_API_KEY` if you want backend-generated PCM speech instead of Android local TTS fallback
 - `STREAM_API_KEY` and `STREAM_API_SECRET` for the Vision Agents transport layer
+
+The current Vision Agent backend mode defaults to:
+
+- `SPEECH_PIPELINE=fast_whisper_pipeline`
+- `FAST_WHISPER_MODEL_SIZE=base`
+- `GEMINI_LLM_MODEL=gemini-3-flash-preview`
+
+If `ELEVENLABS_API_KEY` is absent, the backend still runs Fast-Whisper + Gemini and the Android app falls back to local TTS playback.
 
 ### Meta / DAT Android Tokens
 

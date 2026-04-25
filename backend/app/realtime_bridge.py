@@ -20,6 +20,7 @@ from vision_agents.core.utils.video_track import QueuedVideoTrack
 
 from .agent_factory import _build_processors, build_realtime_llm
 from .config import Settings
+from .pipeline_bridge import FastWhisperPipelineBridge
 from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -350,7 +351,7 @@ class VisionSessionBridge:
 
 class VisionBridgeManager:
     def __init__(self) -> None:
-        self._bridges: dict[str, VisionSessionBridge] = {}
+        self._bridges: dict[str, object] = {}
         self._lock = asyncio.Lock()
 
     async def start(
@@ -359,17 +360,24 @@ class VisionBridgeManager:
         session_id: str,
         settings: Settings,
         emit: JsonEmitter,
-    ) -> VisionSessionBridge:
+    ) -> object:
         async with self._lock:
             bridge = self._bridges.get(session_id)
             if bridge is not None:
                 return bridge
 
-            bridge = VisionSessionBridge(
-                session_id=session_id,
-                settings=settings,
-                emit=emit,
-            )
+            if settings.speech_pipeline == "fast_whisper_pipeline":
+                bridge = FastWhisperPipelineBridge(
+                    session_id=session_id,
+                    settings=settings,
+                    emit=emit,
+                )
+            else:
+                bridge = VisionSessionBridge(
+                    session_id=session_id,
+                    settings=settings,
+                    emit=emit,
+                )
             self._bridges[session_id] = bridge
 
         try:
@@ -380,7 +388,7 @@ class VisionBridgeManager:
                 self._bridges.pop(session_id, None)
             raise
 
-    async def get(self, session_id: str) -> VisionSessionBridge | None:
+    async def get(self, session_id: str) -> object | None:
         async with self._lock:
             return self._bridges.get(session_id)
 

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
 
     realtime_provider: Literal["gemini", "openai"] = "gemini"
+    speech_pipeline: Literal["realtime", "fast_whisper_pipeline"] = "fast_whisper_pipeline"
     realtime_video_fps: int = 2
     processor_fps: int = 2
     enable_face_droop_processor: bool = False
@@ -23,6 +24,14 @@ class Settings(BaseSettings):
     stream_api_secret: str = ""
     openai_api_key: str = ""
     gemini_api_key: str = ""
+    gemini_llm_model: str = "gemini-3-flash-preview"
+    fast_whisper_model_size: str = "base"
+    fast_whisper_language: str = "en"
+    fast_whisper_device: Literal["cpu", "cuda"] = "cpu"
+    pipeline_turn_delay_ms: int = 1200
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "VR6AewLTigWG4xSOukaG"
+    elevenlabs_model_id: str = "eleven_multilingual_v2"
 
     agent_name: str = "DroopDetection Agent"
     agent_user_id: str = "agent"
