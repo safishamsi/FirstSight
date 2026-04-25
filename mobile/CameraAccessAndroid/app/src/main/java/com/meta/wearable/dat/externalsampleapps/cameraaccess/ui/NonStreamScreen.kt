@@ -60,6 +60,7 @@ import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.core.types.RegistrationState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.settings.SettingsManager
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import kotlinx.coroutines.launch
 
@@ -77,6 +78,7 @@ fun NonStreamScreen(
   val isDisconnectEnabled = uiState.registrationState is RegistrationState.Registered
   val activity = LocalActivity.current
   val context = LocalContext.current
+  val aiMode = SettingsManager.aiBackendMode
 
   MaterialTheme(colorScheme = darkColorScheme()) {
     Box(
@@ -160,6 +162,8 @@ fun NonStreamScreen(
           horizontalAlignment = Alignment.CenterHorizontally,
           verticalArrangement = Arrangement.spacedBy(12.dp),
       ) {
+        AiModeBadge(mode = aiMode)
+
         if (!uiState.hasActiveDevice) {
           Row(
               horizontalArrangement = Arrangement.spacedBy(8.dp),

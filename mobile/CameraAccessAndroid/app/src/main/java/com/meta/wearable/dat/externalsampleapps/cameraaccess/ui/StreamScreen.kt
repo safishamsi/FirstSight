@@ -14,11 +14,19 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -163,11 +171,31 @@ fun StreamScreen(
         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             // Top overlays (below status bar)
             Column(modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    AiModeBadge(mode = aiMode)
+                    IconButton(
+                        onClick = { wearablesViewModel.showSettings() },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = androidx.compose.ui.graphics.Color.White,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
+                }
+
                 // Gemini overlay
                 if (aiMode == VisionAgentMode.DIRECT_GEMINI && geminiUiState.isGeminiActive) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     GeminiOverlay(uiState = geminiUiState)
                 }
                 if (aiMode == VisionAgentMode.VISION_AGENT_BACKEND && visionAgentUiState.isVisionAgentActive) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     VisionAgentOverlay(uiState = visionAgentUiState)
                 }
 
