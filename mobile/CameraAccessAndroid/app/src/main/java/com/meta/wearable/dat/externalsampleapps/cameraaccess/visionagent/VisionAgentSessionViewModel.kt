@@ -49,6 +49,7 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
     private val speechPlayer = VisionAgentSpeechPlayer(application)
     private var lastVideoFrameTime: Long = 0
     private var backendAudioActive = false
+    private var isStoppingSession = false
 
     var streamingMode: StreamingMode = StreamingMode.GLASSES
 
@@ -128,9 +129,11 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
             }
         }
         visionAgentService.onDisconnected = { reason ->
-            if (_uiState.value.isVisionAgentActive) {
-                stopSession()
-                _uiState.value = _uiState.value.copy(
+            if (_uiState.value.isVisionAgentActive && !isStoppingSession) {
+                val current = _uiState.value
+                shutdownSessionTransport(resetUi = false)
+                _uiState.value = current.copy(
+                    isVisionAgentActive = false,
                     errorMessage = "Vision Agent backend connection lost: ${reason ?: "Unknown error"}",
                     connectionState = VisionAgentConnectionState.Error(reason ?: "Unknown error"),
                 )
@@ -150,7 +153,7 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
             try {
                 audioManager.startCapture()
             } catch (e: Exception) {
-                stopSession()
+                shutdownSessionTransport(resetUi = true)
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Mic capture failed: ${e.message}",
                     connectionState = VisionAgentConnectionState.Error("Mic capture failed"),
@@ -160,12 +163,20 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
     }
 
     fun stopSession() {
+        shutdownSessionTransport(resetUi = true)
+    }
+
+    private fun shutdownSessionTransport(resetUi: Boolean) {
+        isStoppingSession = true
         audioManager.stopCapture()
         speechPlayer.stop()
         visionAgentService.disconnect()
         lastVideoFrameTime = 0
         backendAudioActive = false
-        _uiState.value = VisionAgentUiState()
+        if (resetUi) {
+            _uiState.value = VisionAgentUiState()
+        }
+        isStoppingSession = false
     }
 
     fun sendVideoFrameIfThrottled(bitmap: Bitmap) {
