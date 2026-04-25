@@ -99,7 +99,6 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
             )
         }
         visionAgentService.onOutputTranscription = { text ->
-            speechPlayer.speak(text)
             _uiState.value = _uiState.value.copy(
                 assistantTranscript = _uiState.value.assistantTranscript + text,
             )
@@ -112,6 +111,9 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
                 val updatedHistory =
                     (current.transcriptHistory + VisionAgentTranscriptTurn(userText, assistantText))
                         .takeLast(6)
+                if (assistantText.isNotEmpty()) {
+                    speechPlayer.speak(assistantText)
+                }
                 _uiState.value = current.copy(
                     userTranscript = "",
                     assistantTranscript = "",
