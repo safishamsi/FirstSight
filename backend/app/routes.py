@@ -1,3 +1,5 @@
+import base64
+import asyncio
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
@@ -6,13 +8,103 @@ from .config import Settings, get_settings
 from .schemas import (
     BootstrapSummary,
     HealthResponse,
+    SessionCreateRequest,
     ServiceInfo,
     SessionCreateResponse,
     SessionStatusResponse,
 )
+from .realtime_bridge import vision_bridge_manager
 from .session_manager import session_manager
+from .vision_runtime import vision_runtime
 
 router = APIRouter()
+
+
+def _extract_client_text(payload: dict[str, object]) -> str | None:
+    client_content = payload.get("clientContent")
+    if not isinstance(client_content, dict):
+        return None
+
+    turns = client_content.get("turns")
+    if not isinstance(turns, list):
+        return None
+
+    texts: list[str] = []
+    for turn in turns:
+        if not isinstance(turn, dict):
+            continue
+        parts = turn.get("parts")
+        if not isinstance(parts, list):
+            continue
+        for part in parts:
+            if not isinstance(part, dict):
+                continue
+            text = part.get("text")
+            if isinstance(text, str) and text.strip():
+                texts.append(text.strip())
+
+    if not texts:
+        return None
+    return " ".join(texts)
+
+
+def _extract_realtime_blob(
+    payload: dict[str, object],
+    *,
+    key: str,
+) -> bytes | None:
+    realtime_input = payload.get("realtimeInput")
+    if not isinstance(realtime_input, dict):
+        return None
+    blob = realtime_input.get(key)
+    if not isinstance(blob, dict):
+        return None
+    data = blob.get("data")
+    if not isinstance(data, str) or not data:
+        return None
+    try:
+        return base64.b64decode(data)
+    except Exception:
+        return None
+
+
+def _parse_stream_payload(payload: dict[str, object]) -> tuple[str, str | None, bytes | None]:
+    if "setup" in payload:
+        return "setup", None, None
+
+    realtime_input = payload.get("realtimeInput")
+    if isinstance(realtime_input, dict):
+        audio = realtime_input.get("audio")
+        if isinstance(audio, dict):
+            return "audio_chunk", None, _extract_realtime_blob(payload, key="audio")
+
+        video = realtime_input.get("video")
+        if isinstance(video, dict):
+            return "video_frame", None, _extract_realtime_blob(payload, key="video")
+
+    client_text = _extract_client_text(payload)
+    if client_text is not None:
+        return "text_message", client_text, None
+
+    event_type = payload.get("type")
+    if isinstance(event_type, str) and event_type:
+        return event_type, None, None
+
+    return "message", None, None
+
+
+def _welcome_message() -> str:
+    return (
+        "Vision agent backend connected. Streaming is live. "
+        "Show me the patient and I will provide step by step first aid guidance."
+    )
+
+
+def _stroke_demo_guidance() -> str:
+    return (
+        "Possible stroke check started. Look for face droop, arm weakness, and slurred speech. "
+        "If symptoms are present, call emergency services immediately and keep the patient seated and monitored."
+    )
 
 
 def _missing_configuration(settings: Settings) -> list[str]:
@@ -62,15 +154,54 @@ def read_bootstrap(settings: Settings = Depends(get_settings)) -> BootstrapSumma
             "FastAPI is intentionally bootable without a live Vision Agents session.",
             "Use app.examples.basic_video_agent as the minimal realtime starting point.",
             "The viewer/dashboard contract will be added on top of this base scaffold.",
-            "The /sessions endpoints currently provide app-to-backend ingest only.",
+            "POST /sessions now doubles as the Android backend-mode bootstrap endpoint.",
+            "The /sessions websocket accepts both custom ingest events and Gemini-style setup/realtimeInput envelopes.",
         ],
     )
 
 
 @router.post("/sessions", response_model=SessionCreateResponse, status_code=status.HTTP_201_CREATED)
-def create_session(settings: Settings = Depends(get_settings)) -> SessionCreateResponse:
+async def create_session(
+    payload: SessionCreateRequest | None = None,
+    settings: Settings = Depends(get_settings),
+) -> SessionCreateResponse:
+    request = payload or SessionCreateRequest()
     record = session_manager.create(provider=settings.realtime_provider)
     missing = _missing_configuration(settings)
+    bootstrap = None
+    bootstrap_error: str | None = None
+
+    if (
+        request.start_agent_session
+        and request.user_id
+        and "STREAM_API_KEY" not in missing
+        and "STREAM_API_SECRET" not in missing
+        and (
+            ("GEMINI_API_KEY" not in missing and settings.realtime_provider == "gemini")
+            or ("OPENAI_API_KEY" not in missing and settings.realtime_provider == "openai")
+        )
+    ):
+        try:
+            bootstrap = await vision_runtime.bootstrap(
+                settings,
+                user_id=request.user_id,
+                user_name=request.user_name,
+                call_id=request.call_id,
+                call_type=request.call_type,
+            )
+        except Exception as exc:  # pragma: no cover - network/config failures are environment-specific
+            bootstrap_error = str(exc)
+
+    session_manager.update_bootstrap(
+        record.session_id,
+        call_id=bootstrap.call_id if bootstrap else None,
+        call_type=bootstrap.call_type if bootstrap else (request.call_type if request.user_id else None),
+        agent_session_id=bootstrap.agent_session_id if bootstrap else None,
+        stream_user_id=bootstrap.stream_user_id if bootstrap else request.user_id,
+        vision_agent_started=bootstrap is not None,
+        vision_agent_error=bootstrap_error,
+    )
+
     return SessionCreateResponse(
         session_id=record.session_id,
         provider=record.provider,
@@ -80,6 +211,15 @@ def create_session(settings: Settings = Depends(get_settings)) -> SessionCreateR
         ),
         vision_agent_transport_ready=("STREAM_API_KEY" not in missing and "STREAM_API_SECRET" not in missing),
         missing_configuration=missing,
+        call_id=bootstrap.call_id if bootstrap else None,
+        call_type=bootstrap.call_type if bootstrap else None,
+        agent_session_id=bootstrap.agent_session_id if bootstrap else None,
+        stream_api_key=bootstrap.stream_api_key if bootstrap else None,
+        stream_user_id=bootstrap.stream_user_id if bootstrap else request.user_id,
+        stream_user_token=bootstrap.stream_user_token if bootstrap else None,
+        stream_call_cid=bootstrap.call_cid if bootstrap else None,
+        vision_agent_started=bootstrap is not None,
+        vision_agent_error=bootstrap_error,
     )
 
 
@@ -98,14 +238,44 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unknown session")
         return
 
+    settings = get_settings()
+    missing = _missing_configuration(settings)
+
     await websocket.accept()
     session_manager.connect(session_id)
-    await websocket.send_json(
+    send_lock = asyncio.Lock()
+
+    async def send_json_safe(payload: dict[str, object]) -> None:
+        async with send_lock:
+            await websocket.send_json(payload)
+
+    bridge = None
+    bridge_error: str | None = None
+    if (
+        ("GEMINI_API_KEY" not in missing and settings.realtime_provider == "gemini")
+        or ("OPENAI_API_KEY" not in missing and settings.realtime_provider == "openai")
+    ):
+        try:
+            bridge = await vision_bridge_manager.start(
+                session_id=session_id,
+                settings=settings,
+                emit=send_json_safe,
+            )
+        except Exception as exc:  # pragma: no cover - network/provider-specific
+            bridge_error = str(exc)
+
+    await send_json_safe(
         {
             "type": "session_ready",
             "session_id": session_id,
             "provider": record.provider,
-            "note": "Ingress is live. Vision Agents forwarding is not wired yet.",
+            "bridge_active": bridge is not None,
+            "bridge_error": bridge_error,
+            "note": (
+                "Ingress is live and provider bridge is active."
+                if bridge is not None
+                else "Ingress is live. Falling back to local demo adapter because provider bridge is unavailable."
+            ),
         }
     )
 
@@ -117,11 +287,71 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
 
             if message.get("text") is not None:
                 payload = json.loads(message["text"])
-                event_type = str(payload.get("type", "message"))
+                event_type, client_text, blob_bytes = _parse_stream_payload(payload)
+
+                if event_type == "setup":
+                    updated = session_manager.record_text_event(session_id, event_type)
+                    if updated is None:
+                        break
+                    await send_json_safe(
+                        {
+                            "setupComplete": {
+                                "session_id": session_id,
+                                "provider": record.provider,
+                                "vision_agent_started": updated.vision_agent_started,
+                            }
+                        }
+                    )
+                    if bridge is not None:
+                        await bridge.send_initial_prompt()
+                    elif not updated.welcome_sent:
+                        session_manager.mark_welcome_sent(session_id)
+                        await send_json_safe(
+                            {
+                                "serverContent": {
+                                    "outputTranscription": {"text": _welcome_message()},
+                                    "turnComplete": True,
+                                }
+                            }
+                        )
+                    continue
+
                 updated = session_manager.record_text_event(session_id, event_type)
                 if updated is None:
                     break
-                await websocket.send_json(
+
+                if bridge is not None and event_type == "audio_chunk" and blob_bytes:
+                    await bridge.send_audio(blob_bytes)
+                elif bridge is not None and event_type == "video_frame" and blob_bytes:
+                    await bridge.send_video_frame(blob_bytes)
+                elif bridge is not None and event_type == "text_message" and client_text:
+                    await bridge.send_text(client_text)
+
+                if bridge is None and event_type == "video_frame" and not updated.demo_guidance_sent:
+                    session_manager.mark_demo_guidance_sent(session_id)
+                    await send_json_safe(
+                        {
+                            "serverContent": {
+                                "outputTranscription": {"text": _stroke_demo_guidance()},
+                                "turnComplete": True,
+                            }
+                        }
+                    )
+
+                if bridge is None and event_type == "text_message" and client_text:
+                    await send_json_safe(
+                        {
+                            "serverContent": {
+                                "inputTranscription": {"text": client_text},
+                                "outputTranscription": {
+                                    "text": f"Backend adapter received: {client_text}"
+                                },
+                                "turnComplete": True,
+                            }
+                        }
+                    )
+
+                await send_json_safe(
                     {
                         "type": "ack",
                         "received_type": event_type,
@@ -136,7 +366,7 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
                 updated = session_manager.record_binary_event(session_id)
                 if updated is None:
                     break
-                await websocket.send_json(
+                await send_json_safe(
                     {
                         "type": "ack",
                         "received_type": "binary_frame",
@@ -147,5 +377,5 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
     except WebSocketDisconnect:
         pass
     finally:
+        await vision_bridge_manager.close(session_id)
         session_manager.disconnect(session_id)
-

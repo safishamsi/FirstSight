@@ -18,6 +18,14 @@ class SessionRecord:
     provider: str
     created_at: str
     last_event_at: str
+    call_id: str | None = None
+    call_type: str | None = None
+    agent_session_id: str | None = None
+    stream_user_id: str | None = None
+    vision_agent_started: bool = False
+    vision_agent_error: str | None = None
+    welcome_sent: bool = False
+    demo_guidance_sent: bool = False
     status: str = "created"
     connected_clients: int = 0
     video_frames: int = 0
@@ -33,6 +41,14 @@ class SessionRecord:
             "provider": self.provider,
             "created_at": self.created_at,
             "last_event_at": self.last_event_at,
+            "call_id": self.call_id,
+            "call_type": self.call_type,
+            "agent_session_id": self.agent_session_id,
+            "stream_user_id": self.stream_user_id,
+            "vision_agent_started": self.vision_agent_started,
+            "vision_agent_error": self.vision_agent_error,
+            "welcome_sent": self.welcome_sent,
+            "demo_guidance_sent": self.demo_guidance_sent,
             "status": self.status,
             "connected_clients": self.connected_clients,
             "video_frames": self.video_frames,
@@ -61,6 +77,30 @@ class SessionManager:
         with self._lock:
             self._sessions[session_id] = record
         return record
+
+    def update_bootstrap(
+        self,
+        session_id: str,
+        *,
+        call_id: str | None,
+        call_type: str | None,
+        agent_session_id: str | None,
+        stream_user_id: str | None,
+        vision_agent_started: bool,
+        vision_agent_error: str | None,
+    ) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.call_id = call_id
+            record.call_type = call_type
+            record.agent_session_id = agent_session_id
+            record.stream_user_id = stream_user_id
+            record.vision_agent_started = vision_agent_started
+            record.vision_agent_error = vision_agent_error
+            record.last_event_at = utc_now_iso()
+            return record
 
     def get(self, session_id: str) -> SessionRecord | None:
         with self._lock:
@@ -117,6 +157,23 @@ class SessionManager:
             record.recent_events.append(event_type)
             return record
 
+    def mark_welcome_sent(self, session_id: str) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.welcome_sent = True
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def mark_demo_guidance_sent(self, session_id: str) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.demo_guidance_sent = True
+            record.last_event_at = utc_now_iso()
+            return record
+
 
 session_manager = SessionManager()
-

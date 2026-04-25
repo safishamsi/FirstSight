@@ -29,6 +29,15 @@ class SessionCreateResponse(BaseModel):
     vision_agent_provider_ready: bool
     vision_agent_transport_ready: bool
     missing_configuration: list[str]
+    call_id: str | None = None
+    call_type: str | None = None
+    agent_session_id: str | None = None
+    stream_api_key: str | None = None
+    stream_user_id: str | None = None
+    stream_user_token: str | None = None
+    stream_call_cid: str | None = None
+    vision_agent_started: bool = False
+    vision_agent_error: str | None = None
 
 
 class SessionStatusResponse(BaseModel):
@@ -44,3 +53,17 @@ class SessionStatusResponse(BaseModel):
     text_messages: int
     last_event_type: str | None
     recent_events: list[str]
+    call_id: str | None = None
+    call_type: str | None = None
+    agent_session_id: str | None = None
+    stream_user_id: str | None = None
+    vision_agent_started: bool = False
+    vision_agent_error: str | None = None
+
+
+class SessionCreateRequest(BaseModel):
+    user_id: str | None = None
+    user_name: str | None = None
+    call_id: str | None = None
+    call_type: str = "default"
+    start_agent_session: bool = True
