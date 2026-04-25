@@ -6,7 +6,7 @@ from typing import Optional
 EMA_ALPHA = 0.3        # BPM smoothing weight — lower is smoother, ~1s lag at 30fps
 CONF_WINDOW = 60       # sliding window length in compute() calls
 CONF_BAD_FRACTION = 0.7  # fraction of window that must be bad to call it no_pulse
-CONF_THRESHOLD = 0.3
+CONF_THRESHOLD = 0.2
 
 # Per-mode normal BPM ranges (distinct from bandpass — bandpass is wider to catch edge cases)
 NORMAL_RANGES = {
