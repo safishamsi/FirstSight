@@ -436,20 +436,23 @@ select {
   bottom: 14px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
+  align-items: end;
 }
 
 .dock-card {
   border: 1px solid #334763;
   background: rgba(13, 20, 32, 0.88);
   color: #eef3ff;
-  padding: 12px;
-  min-height: 88px;
+  padding: 8px 10px;
+  min-height: 0;
 }
 
 .dock-card-overlay {
   backdrop-filter: blur(12px);
   min-height: 0;
+  max-width: min(38vw, 340px);
+  justify-self: start;
 }
 
 .canvas-zoom-controls {
@@ -479,9 +482,18 @@ select {
 }
 
 .dock-card p {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: #c7d4ee;
-  line-height: 1.5;
+  line-height: 1.35;
+  font-size: 13px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.canvas-hud-bottom .dock-card-overlay:last-child {
+  justify-self: end;
 }
 
 .canvas-empty {
