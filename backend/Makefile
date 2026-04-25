@@ -20,8 +20,9 @@ setup:
 	@test -f .env || cp .env.example .env
 
 dev: ensure-env
-	@set -a; [ -f .env ] && . ./.env; set +a; \
-	$(UVICORN) app.main:app --reload --host "$${APP_HOST:-0.0.0.0}" --port "$${APP_PORT:-8000}"
+	@HOST=`$(PYTHON) -c 'from app.config import get_settings; print(get_settings().app_host)'`; \
+	PORT=`$(PYTHON) -c 'from app.config import get_settings; print(get_settings().app_port)'`; \
+	$(UVICORN) app.main:app --reload --host "$$HOST" --port "$$PORT"
 
 test: ensure-env
 	$(PYTHON) -m pytest tests
