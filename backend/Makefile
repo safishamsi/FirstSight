@@ -3,7 +3,7 @@ VENV ?= .venv
 PYTHON := $(VENV)/bin/python
 UVICORN := $(VENV)/bin/uvicorn
 
-.PHONY: help setup ensure-env dev test example clean
+.PHONY: help setup ensure-env dev test example smoke-stream clean
 
 help:
 	@echo "Targets:"
@@ -11,6 +11,7 @@ help:
 	@echo "  make dev      Run the FastAPI app with reload"
 	@echo "  make test     Run pytest"
 	@echo "  make example  Run the Vision Agents starter example"
+	@echo "  make smoke-stream  Run the mock streaming client against a local backend"
 	@echo "  make clean    Remove virtualenv and Python caches"
 
 setup:
@@ -27,9 +28,11 @@ test: ensure-env
 example: ensure-env
 	$(PYTHON) -m app.examples.basic_video_agent
 
+smoke-stream: ensure-env
+	$(PYTHON) -m app.examples.mock_stream_client
+
 ensure-env:
 	@test -x $(PYTHON) || (echo "Missing $(VENV). Run 'make setup' first." && exit 1)
 
 clean:
 	rm -rf $(VENV) .pytest_cache app/__pycache__ app/examples/__pycache__ app/processors/__pycache__ tests/__pycache__
-

@@ -10,11 +10,11 @@ __pycache__/
 **/.omx/
 
 # Android
-samples/CameraAccessAndroid/app/src/main/java/**/Secrets.kt
-samples/CameraAccessAndroid/local.properties
-samples/CameraAccessAndroid/.gradle/
-samples/CameraAccessAndroid/build/
-samples/CameraAccessAndroid/app/build/
+mobile/CameraAccessAndroid/app/src/main/java/**/Secrets.kt
+mobile/CameraAccessAndroid/local.properties
+mobile/CameraAccessAndroid/.gradle/
+mobile/CameraAccessAndroid/build/
+mobile/CameraAccessAndroid/app/build/
 
 # Python backend
 backend/.env

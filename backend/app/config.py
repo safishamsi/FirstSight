@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     realtime_video_fps: int = 2
     processor_fps: int = 2
     enable_face_droop_processor: bool = False
+    stream_api_key: str = ""
+    stream_api_secret: str = ""
+    openai_api_key: str = ""
+    gemini_api_key: str = ""
 
     agent_name: str = "DroopDetection Agent"
     agent_user_id: str = "agent"
@@ -33,4 +37,3 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-

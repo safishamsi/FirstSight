@@ -41,7 +41,7 @@ iOS App (sender)                Signaling Server              Browser (viewer)
 
 ## Signaling Server
 
-Located at `samples/CameraAccess/server/`.
+Located at `mobile/CameraAccess/server/`.
 
 - **Runtime**: Node.js
 - **Dependencies**: `ws` (WebSocket library)
@@ -70,7 +70,7 @@ Located at `samples/CameraAccess/server/`.
 ### Running the Server
 
 ```bash
-cd samples/CameraAccess/server
+cd mobile/CameraAccess/server
 npm install
 npm start
 ```

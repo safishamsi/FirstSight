@@ -21,9 +21,9 @@ Built on [Meta Wearables DAT SDK](https://github.com/facebook/meta-wearables-dat
 If you are joining this repo as a teammate, start here:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) for the planned backend/data-flow direction
-- [`samples/CameraAccess/`](samples/CameraAccess/) for the current iOS prototype
-- [`samples/CameraAccessAndroid/`](samples/CameraAccessAndroid/) for the current Android prototype
-- [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](samples/CameraAccess/CameraAccess/WebRTC/README.md) for the current browser-viewer path
+- [`mobile/CameraAccess/`](mobile/CameraAccess/) for the current iOS prototype
+- [`mobile/CameraAccessAndroid/`](mobile/CameraAccessAndroid/) for the current Android prototype
+- [`mobile/CameraAccess/CameraAccess/WebRTC/README.md`](mobile/CameraAccess/CameraAccess/WebRTC/README.md) for the current browser-viewer path
 
 ## Secrets And Tokens
 
@@ -41,9 +41,9 @@ That root `.env` is the teammate-facing checklist for all keys used in this repo
 |------|---------|---------|
 | Root inventory | `.env` | Shared local checklist for Gemini, OpenAI, Stream, OpenClaw, and Meta/DAT values |
 | Backend | `backend/.env` | Vision Agents / FastAPI runtime config |
-| iOS sample app | `samples/CameraAccess/CameraAccess/Secrets.swift` | `geminiAPIKey`, optional OpenClaw config, optional WebRTC signaling URL |
-| Android sample app | `samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt` | `geminiAPIKey`, optional OpenClaw config, optional WebRTC signaling URL |
-| Android DAT SDK | `samples/CameraAccessAndroid/local.properties` | `github_token`, `mwdat_application_id`, `mwdat_client_token` |
+| iOS sample app | `mobile/CameraAccess/CameraAccess/Secrets.swift` | `geminiAPIKey`, optional OpenClaw config, optional WebRTC signaling URL |
+| Android sample app | `mobile/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt` | `geminiAPIKey`, optional OpenClaw config, optional WebRTC signaling URL |
+| Android DAT SDK | `mobile/CameraAccessAndroid/local.properties` | `github_token`, `mwdat_application_id`, `mwdat_client_token` |
 
 ### Backend `.env`
 
@@ -75,7 +75,7 @@ The Android sample needs two different things:
 Create the Android local properties file:
 
 ```bash
-cp samples/CameraAccessAndroid/local.properties.example samples/CameraAccessAndroid/local.properties
+cp mobile/CameraAccessAndroid/local.properties.example mobile/CameraAccessAndroid/local.properties
 ```
 
 Then fill in:
@@ -92,17 +92,17 @@ Then fill in:
 
 Important:
 
-- `samples/CameraAccessAndroid/settings.gradle.kts` reads `github_token`
-- `samples/CameraAccessAndroid/app/build.gradle.kts` reads `mwdat_application_id` and `mwdat_client_token`
-- `samples/CameraAccessAndroid/app/src/main/AndroidManifest.xml` injects those into the DAT manifest metadata
+- `mobile/CameraAccessAndroid/settings.gradle.kts` reads `github_token`
+- `mobile/CameraAccessAndroid/app/build.gradle.kts` reads `mwdat_application_id` and `mwdat_client_token`
+- `mobile/CameraAccessAndroid/app/src/main/AndroidManifest.xml` injects those into the DAT manifest metadata
 
 ### iOS And Android App Secrets
 
 Create the sample app secrets files:
 
 ```bash
-cp samples/CameraAccess/CameraAccess/Secrets.swift.example samples/CameraAccess/CameraAccess/Secrets.swift
-cp samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt.example samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt
+cp mobile/CameraAccess/CameraAccess/Secrets.swift.example mobile/CameraAccess/CameraAccess/Secrets.swift
+cp mobile/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt.example mobile/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt
 ```
 
 At minimum, set:
@@ -118,9 +118,9 @@ Optional:
 
 | Path | Purpose |
 |------|---------|
-| `samples/CameraAccess/` | Current iOS smart-glasses / iPhone prototype |
-| `samples/CameraAccessAndroid/` | Current Android smart-glasses / phone prototype |
-| `samples/CameraAccess/server/` | Current WebRTC signaling server for the existing browser viewer |
+| `mobile/CameraAccess/` | Current iOS smart-glasses / iPhone prototype |
+| `mobile/CameraAccessAndroid/` | Current Android smart-glasses / phone prototype |
+| `mobile/CameraAccess/server/` | Current WebRTC signaling server for the existing browser viewer |
 | `backend/` | New FastAPI + Vision Agents scaffold for the planned backend |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Planned backend-first Python + React system |
 
@@ -197,6 +197,13 @@ The next system we are building from this repo root is:
 
 The intent is to keep the mobile app thin and move the augmentation logic into a backend that teammates can extend independently.
 
+Current backend status:
+
+- `POST /sessions` creates a local ingest session
+- `WS /sessions/{id}/stream` accepts streamed media events and acknowledges them
+- `GET /sessions/{id}` returns ingest counters and last-event state
+- Vision Agents provider forwarding is not wired yet, so the current proof point is `app -> backend ingress`, not `app -> backend -> live model`
+
 ### Backend Scaffold Quick Start
 
 ```bash
@@ -220,7 +227,7 @@ Useful starting points:
 
 ```bash
 git clone https://github.com/dtseng123/droopdetection.git
-cd droopdetection/samples/CameraAccess
+cd droopdetection/mobile/CameraAccess
 open CameraAccess.xcodeproj
 ```
 
@@ -271,14 +278,14 @@ Then in the iOS app:
 git clone https://github.com/dtseng123/droopdetection.git
 ```
 
-Open `samples/CameraAccessAndroid/` in Android Studio.
+Open `mobile/CameraAccessAndroid/` in Android Studio.
 
 ### 2. Configure GitHub Packages (DAT SDK)
 
 The Meta DAT Android SDK is distributed via GitHub Packages. You need a GitHub Personal Access Token with `read:packages` scope.
 
 1. Go to [GitHub > Settings > Developer Settings > Personal Access Tokens](https://github.com/settings/tokens) and create a **classic** token with `read:packages` scope
-2. In `samples/CameraAccessAndroid/local.properties`, add:
+2. In `mobile/CameraAccessAndroid/local.properties`, add:
 
 ```properties
 github_token=YOUR_GITHUB_TOKEN
@@ -291,7 +298,7 @@ github_token=YOUR_GITHUB_TOKEN
 ### 3. Add your secrets
 
 ```bash
-cd samples/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/
+cd mobile/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/
 cp Secrets.kt.example Secrets.kt
 ```
 
@@ -393,7 +400,7 @@ Now when you talk to the AI, it can execute tasks through OpenClaw.
 
 ### Key Files (iOS)
 
-All source code is in `samples/CameraAccess/CameraAccess/`:
+All source code is in `mobile/CameraAccess/CameraAccess/`:
 
 | File | Purpose |
 |------|---------|
@@ -410,7 +417,7 @@ All source code is in `samples/CameraAccess/CameraAccess/`:
 
 ### Key Files (Android)
 
-All source code is in `samples/CameraAccessAndroid/app/src/main/java/.../cameraaccess/`:
+All source code is in `mobile/CameraAccessAndroid/app/src/main/java/.../cameraaccess/`:
 
 | File | Purpose |
 |------|---------|
@@ -462,13 +469,13 @@ Share your glasses POV in real-time to a browser viewer with bidirectional audio
 5. Media flows peer-to-peer: glasses video to browser, browser camera back to iOS PiP
 
 **Key details:**
-- **Signaling server**: Node.js + WebSocket, located at `samples/CameraAccess/server/` -- serves the browser viewer and relays SDP/ICE
+- **Signaling server**: Node.js + WebSocket, located at `mobile/CameraAccess/server/` -- serves the browser viewer and relays SDP/ICE
 - **NAT traversal**: Google STUN servers + ExpressTURN relay (fetched from `/api/turn`)
 - **Video**: 24 fps, 2.5 Mbps max bitrate
 - **Background handling**: 60-second grace period for iOS app backgrounding -- room stays alive for reconnection
 - **Constraint**: Cannot run simultaneously with Gemini Live (audio device conflict)
 
-For full details, see [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](samples/CameraAccess/CameraAccess/WebRTC/README.md).
+For full details, see [`mobile/CameraAccess/CameraAccess/WebRTC/README.md`](mobile/CameraAccess/CameraAccess/WebRTC/README.md).
 
 ---
 
@@ -509,7 +516,7 @@ For full details, see [`samples/CameraAccess/CameraAccess/WebRTC/README.md`](sam
 
 ### Android-specific
 
-**Gradle sync fails with 401 Unauthorized** -- Your GitHub token is missing or doesn't have `read:packages` scope. Check `samples/CameraAccessAndroid/local.properties` for `github_token`, or set `GITHUB_TOKEN` in your environment. Generate a token at [github.com/settings/tokens](https://github.com/settings/tokens).
+**Gradle sync fails with 401 Unauthorized** -- Your GitHub token is missing or doesn't have `read:packages` scope. Check `mobile/CameraAccessAndroid/local.properties` for `github_token`, or set `GITHUB_TOKEN` in your environment. Generate a token at [github.com/settings/tokens](https://github.com/settings/tokens).
 
 **Gemini WebSocket times out** -- The Gemini Live API sends binary WebSocket frames. If you're building a custom client, make sure to handle both text and binary frame types.
 

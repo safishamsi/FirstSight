@@ -7,7 +7,7 @@ This repo now includes a Python grounding + demo-guidance service for Gemini Liv
 For the lowest-latency demo path, run the service with the local Ultralytics backend:
 
 ```bash
-cd samples/CameraAccessAndroid
+cd mobile/CameraAccessAndroid
 python3 -m venv tools/.venv
 source tools/.venv/bin/activate
 python -m pip install --upgrade pip
@@ -23,7 +23,7 @@ This uses a local YOLO model (`yolo11n.pt`) and avoids slow Gemini-image round t
 On this Apple Silicon Mac, the working Moondream path is **cloud SDK mode** (not `local=True`).
 
 ```bash
-cd samples/CameraAccessAndroid
+cd mobile/CameraAccessAndroid
 source tools/moondream-venv/bin/activate
 export MOONDREAM_API_KEY=your_key_here
 export VISION_TOOL_BACKEND=moondream
@@ -51,7 +51,7 @@ Notes:
 ## Start the service
 
 ```bash
-cd samples/CameraAccessAndroid
+cd mobile/CameraAccessAndroid
 export GEMINI_API_KEY=your_key_here
 export VISION_TOOL_MODEL=gemini-3-flash-preview
 python3 tools/vision_tool_server.py
