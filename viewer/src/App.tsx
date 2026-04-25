@@ -309,7 +309,7 @@ function App() {
                     <button
                       className="canvas-zoom-button"
                       type="button"
-                      onClick={() => setZoomLevel((current) => Math.max(1, current - 0.2))}
+                      onClick={() => setZoomLevel((current) => Math.max(0.4, current - 0.2))}
                     >
                       -
                     </button>
