@@ -2,15 +2,17 @@
 
 ![VisionClaw](assets/teaserimage.png)
 
-A smart-glasses first-aid guidance system. The glasses wearer streams live video; the backend runs two real-time CV models — facial droop detection (stroke indicator) and contactless heart rate (rPPG) — and surfaces voice guidance powered by Gemini and JRCALC clinical guidelines RAG.
+A smart-glasses first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient — the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
 
-The sample apps and some assets still use the earlier internal name `VisionClaw`. Treat that as legacy app branding inside this repo, not a separate project.
+- **Facial droop** — detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
+- **Heart rate** — contactless rPPG from skin colour (CHROM/POS ensemble, no contact needed)
+- **Voice guidance** — Gemini agent backed by JRCALC 2022 clinical guidelines RAG
 
 ![Cover](assets/cover.png)
 
-Built on [Meta Wearables DAT SDK](https://github.com/facebook/meta-wearables-dat-ios) (iOS) / [DAT Android SDK](https://github.com/facebook/meta-wearables-dat-android) (Android) + [Gemini Live API](https://ai.google.dev/gemini-api/docs/live) + [OpenClaw](https://github.com/nichochar/openclaw) (optional).
+**Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
 
-**Supported platforms:** iOS (iPhone), Android (Pixel, Samsung, etc.), and browser webcam.
+> The sample apps and some assets still use the earlier internal name `VisionClaw` — treat that as legacy branding, not a separate project.
 
 ## What's Working Now
 
@@ -36,6 +38,8 @@ If you are joining this repo as a teammate, start here:
 
 The fastest way to see both models running — no mobile hardware required.
 
+**Prerequisites:** Python 3.11–3.13, Node 18+, a [Gemini API key](https://aistudio.google.com/apikey).
+
 ### 1. Clone and configure
 
 ```bash
@@ -43,6 +47,15 @@ git clone https://github.com/dtseng123/droopdetection.git
 cd droopdetection
 cp backend/.env.example backend/.env   # then set GEMINI_API_KEY
 ```
+
+> **Model files required for droop detection.** The trained weights are not in the repo.
+> Place these files before starting the backend:
+> ```
+> model/droop_model.onnx          ← EfficientNet-B0 ONNX weights
+> model/face_landmarker.task      ← MediaPipe face landmarker (download from MediaPipe)
+> checkpoints/threshold.json      ← calibrated detection threshold
+> ```
+> Heart rate works out of the box — the BlazeFace model downloads automatically on first run.
 
 ### 2. Start the backend
 
