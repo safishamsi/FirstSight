@@ -8,8 +8,6 @@ A smart-glasses first-aid guidance system. Point the glasses (or your phone/lapt
 - **Heart rate** — contactless rPPG from skin colour (CHROM/POS ensemble, no contact needed)
 - **Voice guidance** — Gemini agent backed by JRCALC 2022 clinical guidelines RAG
 
-![Cover](assets/cover.png)
-
 **Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
 
 ## What's Working Now
