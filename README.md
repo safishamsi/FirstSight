@@ -240,31 +240,14 @@ The glasses camera streams at ~1fps to Gemini for visual context, while audio fl
 
 ## Current Mobile Flow
 
-![How It Works](assets/how.png)
-
-```
-Meta Ray-Ban Glasses (or phone camera)
-       |
-       | video frames + mic audio
-       v
-iOS / Android App (this project)
-       |
-       | JPEG frames (~1fps) + PCM audio (16kHz)
-       v
-Gemini Live API (WebSocket)
-       |
-       |-- Audio response (PCM 24kHz) --> App --> Speaker
-       |-- Tool calls (execute) -------> App --> OpenClaw Gateway
-       |                                              |
-       |                                              v
-       |                                      56+ skills: web search,
-       |                                      messaging, smart home,
-       |                                      notes, reminders, etc.
-       |                                              |
-       |<---- Tool response (text) <----- App <-------+
-       |
-       v
-  Gemini speaks the result
+```mermaid
+flowchart TD
+    A("🕶️ Meta Ray-Ban Glasses\nor phone camera") -->|video frames + mic audio| B("📱 iOS / Android App")
+    B -->|"JPEG frames ~1fps\nPCM audio 16kHz"| C("✨ Gemini Live API\nWebSocket")
+    C -->|"PCM audio 24kHz"| D("🔊 Speaker")
+    C -->|tool calls| E("⚙️ OpenClaw Gateway\n56+ skills")
+    E --> F("web search · messaging\nsmart home · notes · reminders")
+    F -->|tool response| C
 ```
 
 **Key pieces:**
@@ -277,48 +260,36 @@ For the planned backend-first flow, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## How the Backend Works
 
-```
-Browser / iOS / Android
-        │
-        │  JPEG frames @ 10 fps  (WebSocket)
-        ▼
-┌─────────────────────────────────────────┐
-│           FastAPI backend               │
-│                                         │
-│  ┌──────────────────────────────────┐   │
-│  │        VideoForwarder            │   │
-│  │  (fan-out to all processors)     │   │
-│  └────────┬──────────────┬──────────┘   │
-│           │              │              │
-│           ▼              ▼              │
-│  ┌──────────────┐ ┌────────────────┐   │
-│  │ FaceDroop    │ │ HeartRate      │   │
-│  │ Processor    │ │ Processor      │   │
-│  │              │ │                │   │
-│  │ MediaPipe    │ │ MediaPipe face │   │
-│  │ landmarks    │ │ detect         │   │
-│  │ + asymmetry  │ │ + CHROM/POS    │   │
-│  │ gate         │ │ rPPG ensemble  │   │
-│  │ + EfficientNet│ │ + centroid     │   │
-│  │ -B0 ONNX     │ │ tracker        │   │
-│  └──────┬───────┘ └───────┬────────┘   │
-│         │                 │             │
-│         └────────┬────────┘             │
-│                  ▼                      │
-│         processor_signals{}             │
-│         (polled by viewer)              │
-│                                         │
-│  ┌──────────────────────────────────┐   │
-│  │   Gemini voice agent             │   │
-│  │   + JRCALC RAG (optional)        │   │
-│  └──────────────────────────────────┘   │
-└─────────────────────────────────────────┘
-        │
-        │  JSON polling  (REST)
-        ▼
-   React viewer (http://localhost:5174)
-   └── DEBUG tab: frame overlay, transcript, event trace
-   └── STREAMS tab: webcam feed + live signal cards
+```mermaid
+flowchart TD
+    IN("🕶️ Meta Glasses / 📱 Phone / 💻 Browser webcam")
+    IN -->|"JPEG frames @ 10fps — WebSocket"| VF
+
+    subgraph backend["⚡ FastAPI Backend"]
+        VF["VideoForwarder\nfan-out to all processors"]
+
+        subgraph droop["👁️ Face Droop Processor"]
+            D1["MediaPipe\n468 landmarks"] --> D2["Asymmetry gate\nmouth · eye · brow"]
+            D2 -->|"score > 0.030"| D3["EfficientNet-B0\nONNX — droop probability"]
+        end
+
+        subgraph hr["❤️ Heart Rate Processor"]
+            H1["MediaPipe\nface detect"] --> H2["Forehead ROI crop\n150-frame buffer"]
+            H2 --> H3["CHROM / POS ensemble\nBVP extraction"]
+            H3 --> H4["FFT peak → BPM\n+ alert classifier"]
+        end
+
+        VF --> D1
+        VF --> H1
+
+        D3 --> SIG["processor_signals"]
+        H4 --> SIG
+
+        SIG --> GEM["🤖 Gemini voice agent\n+ JRCALC 2022 RAG"]
+    end
+
+    SIG -->|"JSON polling — REST"| VIEW["🖥️ React Viewer\nlocalhost:5174"]
+    GEM -->|"voice guidance"| SPK["🔊 Glasses speaker"]
 ```
 
 ### Face droop detection
