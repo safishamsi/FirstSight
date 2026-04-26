@@ -54,9 +54,11 @@ def test_result_returned_once_buffer_is_full():
     pipeline, detector, tracker = make_pipeline()
     detector.detect.return_value = [(100, 100, 300, 300, 0.9)]
     tracker.update.return_value = [(100, 100, 300, 300, 1)]
+    # Constant-value frame: zero texture → zero gradient → Farneback gives provably
+    # exact-zero flow, not just approximately-zero (random frames can exceed threshold).
+    frame = np.full((480, 640, 3), 128, dtype=np.uint8)
     results = []
     for _ in range(150):
-        frame = np.random.randint(50, 200, (480, 640, 3), dtype=np.uint8)
         results = pipeline.process_frame(frame)
     assert len(results) == 1
     assert results[0].track_id == 1

@@ -20,42 +20,9 @@ _MP_MODEL_URL = (
 )
 
 
-def _ensure_mp_model():
+def _ensure_mp_model() -> None:
     if not os.path.exists(_MP_MODEL_PATH):
         urllib.request.urlretrieve(_MP_MODEL_URL, _MP_MODEL_PATH)
-
-
-def _make_mp_detector():
-    _ensure_mp_model()
-    base_options = mp_python.BaseOptions(model_asset_path=_MP_MODEL_PATH)
-    options = mp_vision.FaceDetectorOptions(
-        base_options=base_options, min_detection_confidence=0.4
-    )
-    return mp_vision.FaceDetector.create_from_options(options)
-
-
-# Lazily initialised — only created if YOLOR misses on first use
-_mp_detector = None
-
-
-def _mediapipe_detect(frame: np.ndarray) -> list[tuple[int, int, int, int, float]]:
-    global _mp_detector
-    if _mp_detector is None:
-        _mp_detector = _make_mp_detector()
-
-    h, w = frame.shape[:2]
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-    result = _mp_detector.detect(mp_image)
-    detections = []
-    for det in result.detections:
-        bb = det.bounding_box
-        x1 = max(0, bb.origin_x)
-        y1 = max(0, bb.origin_y)
-        x2 = min(w, bb.origin_x + bb.width)
-        y2 = min(h, bb.origin_y + bb.height)
-        detections.append((x1, y1, x2, y2, det.categories[0].score))
-    return detections
 
 
 class HeadDetector:
@@ -66,6 +33,7 @@ class HeadDetector:
         self.img_size = img_size
         self.conf_thres = conf_thres
         self.iou_thres = iou_thres
+        self._mp_detector = None  # lazy-init: only created if YOLOR misses
 
         self.model = Darknet(cfg_path, img_size).to(self.device)
         state = torch.load(weights_path, map_location=self.device, weights_only=False)
@@ -74,12 +42,36 @@ class HeadDetector:
         if self.device.type != "cpu":
             self.model.half()
 
+    def _get_mp_detector(self):
+        if self._mp_detector is None:
+            _ensure_mp_model()
+            base_options = mp_python.BaseOptions(model_asset_path=_MP_MODEL_PATH)
+            options = mp_vision.FaceDetectorOptions(
+                base_options=base_options, min_detection_confidence=0.4
+            )
+            self._mp_detector = mp_vision.FaceDetector.create_from_options(options)
+        return self._mp_detector
+
+    def _mediapipe_detect(self, frame: np.ndarray) -> list[tuple[int, int, int, int, float]]:
+        h, w = frame.shape[:2]
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        result = self._get_mp_detector().detect(mp_image)
+        detections = []
+        for det in result.detections:
+            bb = det.bounding_box
+            x1 = max(0, bb.origin_x)
+            y1 = max(0, bb.origin_y)
+            x2 = min(w, bb.origin_x + bb.width)
+            y2 = min(h, bb.origin_y + bb.height)
+            detections.append((x1, y1, x2, y2, det.categories[0].score))
+        return detections
+
     def detect(self, frame: np.ndarray) -> list[tuple[int, int, int, int, float]]:
         """
         frame: BGR numpy array (H, W, 3)
         Returns list of (x1, y1, x2, y2, confidence)
-        Falls back to MediaPipe when YOLOR finds nothing — handles rotated/top-down faces
-        (person lying on ground, unusual camera angle).
+        Falls back to MediaPipe when YOLOR finds nothing — handles rotated/top-down faces.
         """
         img = letterbox(frame, new_shape=self.img_size, auto_size=64)[0]
         img = img[:, :, ::-1].transpose(2, 0, 1)
@@ -101,8 +93,7 @@ class HeadDetector:
                 x1, y1, x2, y2 = (int(v) for v in xyxy)
                 results.append((x1, y1, x2, y2, float(conf)))
 
-        # YOLOR missed — try MediaPipe which handles rotated/top-down faces
         if not results:
-            results = _mediapipe_detect(frame)
+            results = self._mediapipe_detect(frame)
 
         return results

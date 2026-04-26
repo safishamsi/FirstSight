@@ -14,7 +14,6 @@ import numpy as np
 import h5py
 import pandas as pd
 from pathlib import Path
-from scipy.signal import butter, filtfilt
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "vendor"))
@@ -41,58 +40,18 @@ def predict_bpm(mat_path: Path) -> tuple[float | None, float]:
     with h5py.File(mat_path, "r") as f:
         raw = np.array(f["RawFrames"]).transpose(3, 2, 1, 0).astype(np.float32)
 
-    # Mean green channel per frame — robust spatial average that works on synthetic faces
+    # Mean green channel per frame — robust spatial average for synthetic faces
     green = raw[:, :, :, 1].mean(axis=(1, 2))  # (N,)
 
-    LOW_HZ, HIGH_HZ = 0.5, 4.0
-    nyq = FPS / 2.0
-    lo, hi = LOW_HZ / nyq, HIGH_HZ / nyq
-    b_bp, a_bp = butter(2, [lo, hi], btype="band")
-
-    n_fft = max(BUFFER * 4, 512)
+    sp = SignalProcessor(fps=FPS, buffer_size=BUFFER, min_freq=0.5, max_freq=4.0)
 
     readings, confs = [], []
     for start in range(0, len(green) - BUFFER + 1):
-        window = green[start:start + BUFFER]
-
-        # Butterworth bandpass then zero-padded rfft for peak detection
-        filtered = filtfilt(b_bp, a_bp, window - window.mean())
-        spec     = np.fft.rfft(filtered, n=n_fft)
-        freqs    = np.fft.rfftfreq(n_fft, d=1.0 / FPS)
-        power    = np.abs(spec)
-        mask     = (freqs >= LOW_HZ) & (freqs <= HIGH_HZ)
-
-        # Harmonic-weighted peak selection
-        masked_power = power * mask
-        candidates   = np.argsort(masked_power)[-5:][::-1]
-        best_idx     = candidates[0]
-        best_score   = -1.0
-        for c_idx in candidates:
-            if masked_power[c_idx] == 0:
-                continue
-            f     = freqs[c_idx]
-            h_idx = int(np.argmin(np.abs(freqs - 2 * f)))
-            hr    = power[h_idx] / (power[c_idx] + 1e-10)
-            score = power[c_idx] * 1.5 if hr >= 0.15 else power[c_idx]
-            if score > best_score:
-                best_score = score
-                best_idx   = c_idx
-
-        # Confidence from unfiltered coarse FFT (broadband noise reference)
-        power_raw   = np.abs(np.fft.rfft(window - window.mean(), n=BUFFER))
-        freqs_coarse = np.fft.rfftfreq(BUFFER, d=1.0 / FPS)
-        mask_coarse  = (freqs_coarse >= LOW_HZ) & (freqs_coarse <= HIGH_HZ)
-        out_of_band  = power_raw[~mask_coarse]
-        noise        = float(out_of_band.mean()) if out_of_band.size else 1e-10
-        noise        = noise if noise > 0 else 1e-10
-        closest_idx  = int(np.argmin(np.abs(freqs_coarse - freqs[best_idx])))
-        peak_power   = float(power_raw[closest_idx])
-        confidence   = min(peak_power / noise / 5.0, 1.0)
-
-        if confidence > CONF_THRESHOLD:
-            bpm = float(freqs[best_idx] * 60)
+        window = green[start:start + BUFFER].astype(np.float32)
+        bpm, conf = sp._bvp_to_hr(window)
+        if conf > CONF_THRESHOLD:
             readings.append(bpm)
-            confs.append(confidence)
+            confs.append(conf)
 
     if not readings:
         return None, 0.0

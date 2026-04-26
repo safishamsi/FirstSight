@@ -21,6 +21,7 @@ class HeadTracker:
             nn_budget=cfg["NN_BUDGET"],
             use_cuda=False,
         )
+        self._last_tracks: list[tuple[int, int, int, int, int]] = []
 
     def update(self, detections: list[tuple[int, int, int, int, float]],
                frame: np.ndarray) -> list[tuple[int, int, int, int, int]]:
@@ -30,7 +31,9 @@ class HeadTracker:
         Returns list of (x1, y1, x2, y2, track_id)
         """
         if not detections:
-            return []
+            # Return last known positions so the rPPG buffer fills at full frame rate
+            # between YOLOR detection cycles (every DETECTION_SKIP frames).
+            return self._last_tracks
 
         bbox_xywh = np.array([
             [(x1 + x2) / 2, (y1 + y2) / 2, x2 - x1, y2 - y1]
@@ -40,5 +43,6 @@ class HeadTracker:
         oids = np.zeros(len(detections), dtype=int)
 
         outputs = self.tracker.update(bbox_xywh, confidences, oids, frame)
-        return [(int(o[0]), int(o[1]), int(o[2]), int(o[3]), int(o[4]))
-                for o in outputs]
+        self._last_tracks = [(int(o[0]), int(o[1]), int(o[2]), int(o[3]), int(o[4]))
+                             for o in outputs]
+        return self._last_tracks

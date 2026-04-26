@@ -1,5 +1,6 @@
 import sys
 import json
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,6 +8,8 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
+
+log = logging.getLogger(__name__)
 
 BASE = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE / "vendor"))
@@ -46,10 +49,12 @@ async def websocket_endpoint(websocket: WebSocket):
     except ValueError as e:
         await websocket.close(code=1008, reason=str(e))
         return
-    except Exception:
+    except Exception as exc:
+        log.exception("Pipeline init failed: %s", exc)
         await websocket.close(code=1011, reason="Internal error")
         return
 
+    last_status: dict[int, str] = {}
     try:
         while True:
             data = await websocket.receive_bytes()
@@ -57,15 +62,19 @@ async def websocket_endpoint(websocket: WebSocket):
             if frame is None:
                 continue
             for result in pipeline.process_frame(frame):
+                alert_changed = result.status != last_status.get(result.track_id)
+                last_status[result.track_id] = result.status
                 await websocket.send_text(json.dumps({
                     "track_id": result.track_id,
                     "bpm": result.bpm,
                     "confidence": result.confidence,
                     "status": result.status,
+                    "alert_changed": alert_changed,
                 }))
     except WebSocketDisconnect:
         pass
-    except Exception:
+    except Exception as exc:
+        log.exception("WebSocket error: %s", exc)
         await websocket.close(code=1011, reason="Internal error")
 
 

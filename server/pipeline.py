@@ -9,11 +9,10 @@ from server.signal_processor import SignalProcessor, HeartRateResult, STATUS_NO_
 PYRAMID_LEVELS = 3
 BUFFER_SIZE = 150
 ROI_W, ROI_H = 320, 240
-H_PAD, W_PAD = 60, 40
+FOREHEAD_FRAC = 0.40  # top 40% of face height — flat skin, minimal expression artifacts
 MOTION_THRESHOLD = 5.0
 MOTION_GRACE_FRAMES = 10  # brief motion keeps buffer; beyond this, buffer is stale and cleared
-CHANNEL_WEIGHTS = np.array([0.1, 0.8, 0.1], dtype=np.float32)
-DETECTION_SKIP = 10  # run YOLOR every Nth frame; DeepSort predicts in between
+WHOLE_FRAME_TRACK_ID = 0  # synthetic track when no face detected (neonate top-down camera)
 
 FREQ_RANGES = {
     "adult": (1.0, 2.0),
@@ -51,19 +50,20 @@ class HeartRatePipeline:
         self.prev_rois: dict[int, np.ndarray] = {}
         self._motion_streak: dict[int, int] = defaultdict(int)
         self._frame_count = 0
+        self._detect_interval = 10  # run YOLOR every 10th frame; tracker fills in between
 
     def _crop_roi(self, frame: np.ndarray, bbox: tuple[int, int, int, int]) -> Optional[np.ndarray]:
         x1, y1, x2, y2 = bbox
         h, w = frame.shape[:2]
-        xc, yc = (x1 + x2) // 2, (y1 + y2) // 2
         bw, bh = x2 - x1, y2 - y1
-        xmin, xmax = max(0, xc - bw // 2), min(w, xc + bw // 2)
-        ymin, ymax = max(0, yc - bh // 2), min(h, yc + bh // 2)
-        crop = frame[ymin:ymax, xmin:xmax]
+        # Forehead: top 40% of face height, 10% horizontal margin each side
+        fx1 = max(0, x1 + bw // 10)
+        fx2 = min(w, x2 - bw // 10)
+        fy2 = min(h, y1 + int(bh * FOREHEAD_FRAC))
+        crop = frame[y1:fy2, fx1:fx2]
         if crop.size == 0:
             return None
-        crop = cv2.resize(crop, (ROI_W, ROI_H), interpolation=cv2.INTER_AREA)
-        return crop[H_PAD:ROI_H - H_PAD, W_PAD:ROI_W - W_PAD]
+        return cv2.resize(crop, (ROI_W, ROI_H), interpolation=cv2.INTER_AREA)
 
     def _motion_too_high(self, track_id: int, roi: np.ndarray) -> bool:
         prev = self.prev_rois.get(track_id)
@@ -93,11 +93,18 @@ class HeartRatePipeline:
         if frame is None or frame.ndim != 3:
             return []
         self._frame_count += 1
-        if self._frame_count % DETECTION_SKIP == 0:
+        if self._frame_count % self._detect_interval == 0:
             detections = self.detector.detect(frame)
         else:
             detections = []
         tracks = self.tracker.update(detections, frame)
+
+        # Neonate cameras are top-down: face detectors miss upward-facing babies.
+        # When no track is found, use the full frame as a single synthetic ROI.
+        if not tracks and self.mode == "neonate":
+            h, w = frame.shape[:2]
+            tracks = [(0, 0, w, h, WHOLE_FRAME_TRACK_ID)]
+
         results = []
 
         for x1, y1, x2, y2, track_id in tracks:
@@ -117,7 +124,7 @@ class HeartRatePipeline:
             # Blur removes JPEG block artifacts before pyramid decomposition
             roi_smooth = cv2.GaussianBlur(roi, (3, 3), 0)
             gauss = build_gaussian_pyramid(roi_smooth, PYRAMID_LEVELS + 1)[PYRAMID_LEVELS]
-            self.buffers[track_id].append(gauss * CHANNEL_WEIGHTS)
+            self.buffers[track_id].append(gauss)  # raw BGR; CHROM normalises per-channel in compute()
 
             if len(self.buffers[track_id]) == BUFFER_SIZE:
                 buf = np.array(self.buffers[track_id], dtype=np.float32)
