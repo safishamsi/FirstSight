@@ -24,8 +24,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,6 +79,8 @@ fun StreamScreen(
 ) {
     var aiMode by remember { mutableStateOf(SettingsManager.aiBackendMode) }
     var showVisionAgentDebugPanel by remember { mutableStateOf(false) }
+    var showGuideBrowser by remember { mutableStateOf(false) }
+    var showVisionAgentArtifacts by remember { mutableStateOf(true) }
     val streamUiState by streamViewModel.uiState.collectAsStateWithLifecycle()
     val geminiUiState by geminiViewModel.uiState.collectAsStateWithLifecycle()
     val visionAgentUiState by visionAgentViewModel.uiState.collectAsStateWithLifecycle()
@@ -157,6 +162,20 @@ fun StreamScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
+
+            if (
+                aiMode == VisionAgentMode.VISION_AGENT_BACKEND &&
+                visionAgentUiState.isVisionAgentActive &&
+                showVisionAgentArtifacts &&
+                visionAgentUiState.spatialOverlays.isNotEmpty()
+            ) {
+                VisionAgentSpatialOverlays(
+                    overlays = visionAgentUiState.spatialOverlays,
+                    frameWidth = videoFrame.width,
+                    frameHeight = videoFrame.height,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
 
         geminiUiState.detectionOverlay?.let { overlay ->
@@ -184,6 +203,26 @@ fun StreamScreen(
                     AiModeBadge(mode = aiMode)
                     Row {
                         if (aiMode == VisionAgentMode.VISION_AGENT_BACKEND) {
+                            IconButton(
+                                onClick = { showVisionAgentArtifacts = !showVisionAgentArtifacts },
+                            ) {
+                                Icon(
+                                    imageVector = if (showVisionAgentArtifacts) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (showVisionAgentArtifacts) "Hide backend artifacts" else "Show backend artifacts",
+                                    tint = androidx.compose.ui.graphics.Color.White,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
+                            IconButton(
+                                onClick = { showGuideBrowser = true },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                                    contentDescription = "Guide library",
+                                    tint = androidx.compose.ui.graphics.Color.White,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                            }
                             IconButton(
                                 onClick = { showVisionAgentDebugPanel = !showVisionAgentDebugPanel },
                             ) {
@@ -302,6 +341,20 @@ fun StreamScreen(
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
+    }
+
+    if (showGuideBrowser) {
+        GuideBrowserSheet(
+            activeSessionId = visionAgentUiState.sessionId,
+            onLoadGuideIntoSession = { protocolId, matchedQuery, onComplete ->
+                visionAgentViewModel.loadGuideIntoSession(
+                    protocolId = protocolId,
+                    matchedQuery = matchedQuery,
+                    onComplete = onComplete,
+                )
+            },
+            onDismiss = { showGuideBrowser = false },
+        )
     }
 
     // Share photo dialog

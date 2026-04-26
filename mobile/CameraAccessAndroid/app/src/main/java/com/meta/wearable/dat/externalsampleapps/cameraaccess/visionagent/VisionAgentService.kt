@@ -32,6 +32,51 @@ data class VisionAgentBootstrapPayload(
     val missingConfiguration: List<String>,
 )
 
+data class VisionAgentChecklistItemPayload(
+    val id: String,
+    val label: String,
+    val kind: String,
+    val status: String,
+    val sourceProtocolId: String?,
+)
+
+data class VisionAgentSpatialPointPayload(
+    val x: Float,
+    val y: Float,
+)
+
+data class VisionAgentSpatialBoxPayload(
+    val xmin: Float,
+    val ymin: Float,
+    val xmax: Float,
+    val ymax: Float,
+)
+
+data class VisionAgentSpatialOverlayPayload(
+    val id: String,
+    val kind: String,
+    val label: String?,
+    val text: String?,
+    val color: String?,
+    val source: String?,
+    val emphasis: String?,
+    val point: VisionAgentSpatialPointPayload?,
+    val box: VisionAgentSpatialBoxPayload?,
+    val points: List<VisionAgentSpatialPointPayload>,
+)
+
+data class VisionAgentSessionStatusPayload(
+    val activeProtocolId: String?,
+    val activeProtocolTitle: String?,
+    val activeProtocolSummary: String?,
+    val activeProtocolManual: String?,
+    val lastAgentPromptedStep: String?,
+    val spatialContextSummary: String?,
+    val spatialOverlays: List<VisionAgentSpatialOverlayPayload>,
+    val riskFlags: List<String>,
+    val activeChecklist: List<VisionAgentChecklistItemPayload>,
+)
+
 class VisionAgentService {
     companion object {
         private const val TAG = "VisionAgentService"
@@ -187,6 +232,63 @@ class VisionAgentService {
         webSocket?.send(json.toString())
     }
 
+    fun fetchSessionStatus(sessionId: String): VisionAgentSessionStatusPayload? {
+        val statusUrl = VisionAgentConfig.sessionStatusUrl(sessionId) ?: return null
+        val request = Request.Builder().url(statusUrl).get().build()
+        return try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "Session status failed code=${response.code} sessionId=$sessionId")
+                    return null
+                }
+                val body = response.body?.string().orEmpty()
+                val json = JSONObject(body)
+                val incidentState = json.optJSONObject("incident_state") ?: JSONObject()
+                val checklistItems = buildList {
+                    val array = json.optJSONArray("active_checklist") ?: JSONArray()
+                    for (index in 0 until array.length()) {
+                        val item = array.optJSONObject(index) ?: continue
+                        add(
+                            VisionAgentChecklistItemPayload(
+                                id = item.optString("id"),
+                                label = item.optString("label"),
+                                kind = item.optString("kind", "action"),
+                                status = item.optString("status", "pending"),
+                                sourceProtocolId = item.optString("source_protocol_id").ifBlank { null },
+                            ),
+                        )
+                    }
+                }
+                VisionAgentSessionStatusPayload(
+                    activeProtocolId = incidentState.optString("active_protocol_id").ifBlank { null },
+                    activeProtocolTitle = incidentState.optString("active_protocol_title").ifBlank { null },
+                    activeProtocolSummary = incidentState.optString("active_protocol_summary").ifBlank { null },
+                    activeProtocolManual = incidentState.optString("active_protocol_manual").ifBlank { null },
+                    lastAgentPromptedStep = incidentState.optString("last_agent_prompted_step").ifBlank { null },
+                    spatialContextSummary = json.optString("spatial_context_summary").ifBlank { null },
+                    spatialOverlays =
+                        buildList {
+                            val array = json.optJSONArray("spatial_overlays") ?: JSONArray()
+                            for (index in 0 until array.length()) {
+                                val item = array.optJSONObject(index) ?: continue
+                                add(item.toSpatialOverlayPayload() ?: continue)
+                            }
+                        },
+                    riskFlags = buildList {
+                        val array = incidentState.optJSONArray("risk_flags") ?: JSONArray()
+                        for (index in 0 until array.length()) {
+                            add(array.optString(index))
+                        }
+                    },
+                    activeChecklist = checklistItems,
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Session status fetch failed sessionId=$sessionId", e)
+            null
+        }
+    }
+
     private fun openWebSocket(sessionId: String) {
         val streamUrl = VisionAgentConfig.streamUrl(sessionId)
         if (streamUrl == null) {
@@ -316,4 +418,50 @@ class VisionAgentService {
         connectCallback = null
         callback?.invoke(success)
     }
+}
+
+private fun JSONObject.toSpatialPointPayload(): VisionAgentSpatialPointPayload? {
+    val x = optDouble("x", Double.NaN).toFloat()
+    val y = optDouble("y", Double.NaN).toFloat()
+    if (!x.isFinite() || !y.isFinite()) return null
+    return VisionAgentSpatialPointPayload(x = x, y = y)
+}
+
+private fun JSONObject.toSpatialBoxPayload(): VisionAgentSpatialBoxPayload? {
+    val xmin = optDouble("xmin", Double.NaN).toFloat()
+    val ymin = optDouble("ymin", Double.NaN).toFloat()
+    val xmax = optDouble("xmax", Double.NaN).toFloat()
+    val ymax = optDouble("ymax", Double.NaN).toFloat()
+    if (!xmin.isFinite() || !ymin.isFinite() || !xmax.isFinite() || !ymax.isFinite()) return null
+    return VisionAgentSpatialBoxPayload(
+        xmin = xmin,
+        ymin = ymin,
+        xmax = xmax,
+        ymax = ymax,
+    )
+}
+
+private fun JSONObject.toSpatialOverlayPayload(): VisionAgentSpatialOverlayPayload? {
+    val id = optString("id")
+    val kind = optString("kind")
+    if (id.isBlank() || kind.isBlank()) return null
+    return VisionAgentSpatialOverlayPayload(
+        id = id,
+        kind = kind,
+        label = optString("label").ifBlank { null },
+        text = optString("text").ifBlank { null },
+        color = optString("color").ifBlank { null },
+        source = optString("source").ifBlank { null },
+        emphasis = optString("emphasis").ifBlank { null },
+        point = optJSONObject("point")?.toSpatialPointPayload(),
+        box = optJSONObject("box")?.toSpatialBoxPayload(),
+        points =
+            buildList {
+                val array = optJSONArray("points") ?: JSONArray()
+                for (index in 0 until array.length()) {
+                    val item = array.optJSONObject(index) ?: continue
+                    add(item.toSpatialPointPayload() ?: continue)
+                }
+            },
+    )
 }

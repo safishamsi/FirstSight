@@ -3,12 +3,19 @@ package com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent
 import android.graphics.Bitmap
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.AudioManager
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiConfig
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamingMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class VisionAgentConnectionState {
     object Disconnected : VisionAgentConnectionState()
@@ -21,6 +28,37 @@ sealed class VisionAgentConnectionState {
 data class VisionAgentTranscriptTurn(
     val userText: String,
     val assistantText: String,
+)
+
+data class VisionAgentChecklistItem(
+    val id: String,
+    val label: String,
+    val status: String,
+)
+
+data class VisionAgentSpatialPoint(
+    val x: Float,
+    val y: Float,
+)
+
+data class VisionAgentSpatialBox(
+    val xmin: Float,
+    val ymin: Float,
+    val xmax: Float,
+    val ymax: Float,
+)
+
+data class VisionAgentSpatialOverlay(
+    val id: String,
+    val kind: String,
+    val label: String?,
+    val text: String?,
+    val colorHex: String?,
+    val source: String?,
+    val emphasis: String?,
+    val point: VisionAgentSpatialPoint?,
+    val box: VisionAgentSpatialBox?,
+    val points: List<VisionAgentSpatialPoint>,
 )
 
 data class VisionAgentUiState(
@@ -38,6 +76,14 @@ data class VisionAgentUiState(
     val userTranscript: String = "",
     val assistantTranscript: String = "",
     val transcriptHistory: List<VisionAgentTranscriptTurn> = emptyList(),
+    val activeProtocolTitle: String? = null,
+    val activeProtocolSummary: String? = null,
+    val activeProtocolManual: String? = null,
+    val currentChecklistStep: String? = null,
+    val checklistItems: List<VisionAgentChecklistItem> = emptyList(),
+    val spatialContextSummary: String? = null,
+    val spatialOverlays: List<VisionAgentSpatialOverlay> = emptyList(),
+    val riskFlags: List<String> = emptyList(),
 )
 
 class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(application) {
@@ -50,6 +96,7 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
     private var lastVideoFrameTime: Long = 0
     private var backendAudioActive = false
     private var isStoppingSession = false
+    private var sessionStatusJob: Job? = null
 
     var streamingMode: StreamingMode = StreamingMode.GLASSES
 
@@ -87,6 +134,7 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
                 visionAgentError = bootstrap.visionAgentError,
                 connectionState = VisionAgentConnectionState.Connecting,
             )
+            startSessionStatusPolling(bootstrap.sessionId)
         }
         visionAgentService.onAck = { videoFrames, audioChunks ->
             _uiState.value = _uiState.value.copy(
@@ -127,6 +175,7 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
                     transcriptHistory = updatedHistory,
                 )
             }
+            refreshSessionStatus()
         }
         visionAgentService.onDisconnected = { reason ->
             if (_uiState.value.isVisionAgentActive && !isStoppingSession) {
@@ -168,6 +217,8 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
 
     private fun shutdownSessionTransport(resetUi: Boolean) {
         isStoppingSession = true
+        sessionStatusJob?.cancel()
+        sessionStatusJob = null
         audioManager.stopCapture()
         speechPlayer.stop()
         visionAgentService.disconnect()
@@ -191,8 +242,109 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 
+    fun refreshStatus() {
+        refreshSessionStatus()
+    }
+
+    fun loadGuideIntoSession(
+        protocolId: String,
+        matchedQuery: String? = null,
+        onComplete: (Boolean, String?) -> Unit = { _, _ -> },
+    ) {
+        val sessionId = _uiState.value.sessionId
+        if (sessionId.isNullOrBlank()) {
+            onComplete(false, "Start Vision Agent first to attach a guide to the active session.")
+            return
+        }
+        val guideClient = VisionAgentGuideClient()
+        viewModelScope.launch {
+            val success =
+                withContext(Dispatchers.IO) {
+                    guideClient.loadGuideIntoSession(
+                        sessionId = sessionId,
+                        protocolId = protocolId,
+                        matchedQuery = matchedQuery,
+                    )
+                }
+            if (success) {
+                refreshSessionStatus()
+                onComplete(true, null)
+            } else {
+                onComplete(false, "Failed to load guide into the active session.")
+            }
+        }
+    }
+
+    private fun startSessionStatusPolling(sessionId: String) {
+        sessionStatusJob?.cancel()
+        sessionStatusJob =
+            viewModelScope.launch {
+                while (isActive && _uiState.value.isVisionAgentActive && _uiState.value.sessionId == sessionId) {
+                    refreshSessionStatus()
+                    delay(1500)
+                }
+            }
+    }
+
+    private fun refreshSessionStatus() {
+        val sessionId = _uiState.value.sessionId ?: return
+        viewModelScope.launch {
+            val status =
+                withContext(Dispatchers.IO) {
+                    visionAgentService.fetchSessionStatus(sessionId)
+                } ?: return@launch
+            _uiState.value =
+                _uiState.value.copy(
+                    activeProtocolTitle = status.activeProtocolTitle,
+                    activeProtocolSummary = status.activeProtocolSummary,
+                    activeProtocolManual = status.activeProtocolManual,
+                    currentChecklistStep = status.lastAgentPromptedStep,
+                    spatialContextSummary = status.spatialContextSummary,
+                    spatialOverlays =
+                        status.spatialOverlays.map { overlay ->
+                            VisionAgentSpatialOverlay(
+                                id = overlay.id,
+                                kind = overlay.kind,
+                                label = overlay.label,
+                                text = overlay.text,
+                                colorHex = overlay.color,
+                                source = overlay.source,
+                                emphasis = overlay.emphasis,
+                                point =
+                                    overlay.point?.let {
+                                        VisionAgentSpatialPoint(x = it.x, y = it.y)
+                                    },
+                                box =
+                                    overlay.box?.let {
+                                        VisionAgentSpatialBox(
+                                            xmin = it.xmin,
+                                            ymin = it.ymin,
+                                            xmax = it.xmax,
+                                            ymax = it.ymax,
+                                        )
+                                    },
+                                points =
+                                    overlay.points.map {
+                                        VisionAgentSpatialPoint(x = it.x, y = it.y)
+                                    },
+                            )
+                        },
+                    checklistItems =
+                        status.activeChecklist.map {
+                            VisionAgentChecklistItem(
+                                id = it.id,
+                                label = it.label,
+                                status = it.status,
+                            )
+                        },
+                    riskFlags = status.riskFlags,
+                )
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
+        sessionStatusJob?.cancel()
         speechPlayer.shutdown()
     }
 }

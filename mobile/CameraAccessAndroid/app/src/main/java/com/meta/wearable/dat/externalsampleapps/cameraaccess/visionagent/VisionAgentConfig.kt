@@ -55,4 +55,29 @@ object VisionAgentConfig {
             else -> "ws://${baseUrl}/sessions/${sessionId}/stream"
         }
     }
+
+    fun sessionStatusUrl(sessionId: String): String? {
+        if (!isConfigured || sessionId.isBlank()) return null
+        return "${baseUrl}/sessions/${sessionId}"
+    }
+
+    fun checklistSetUrl(sessionId: String): String? {
+        if (!isConfigured || sessionId.isBlank()) return null
+        return "${baseUrl}/sessions/${sessionId}/checklist/set"
+    }
+
+    fun protocolsUrl(): String? {
+        if (!isConfigured) return null
+        return "${baseUrl}/protocols"
+    }
+
+    fun protocolSearchUrl(): String? {
+        if (!isConfigured) return null
+        return "${baseUrl}/protocols/search"
+    }
+
+    fun protocolDetailUrl(protocolId: String): String? {
+        if (!isConfigured || protocolId.isBlank()) return null
+        return "${baseUrl}/protocols/${protocolId}"
+    }
 }

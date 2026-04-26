@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DropdownMenu
@@ -61,6 +62,7 @@ import com.meta.wearable.dat.core.types.PermissionStatus
 import com.meta.wearable.dat.core.types.RegistrationState
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.R
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.settings.SettingsManager
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent.VisionAgentMode
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.wearables.WearablesViewModel
 import kotlinx.coroutines.launch
 
@@ -79,6 +81,7 @@ fun NonStreamScreen(
   val activity = LocalActivity.current
   val context = LocalContext.current
   var aiMode by remember { mutableStateOf(SettingsManager.aiBackendMode) }
+  var isGuideBrowserVisible by remember { mutableStateOf(false) }
 
   MaterialTheme(colorScheme = darkColorScheme()) {
     Box(
@@ -90,6 +93,17 @@ fun NonStreamScreen(
           modifier = Modifier.align(Alignment.TopEnd).systemBarsPadding(),
           horizontalArrangement = Arrangement.spacedBy(4.dp),
       ) {
+        if (aiMode == VisionAgentMode.VISION_AGENT_BACKEND) {
+          IconButton(onClick = { isGuideBrowserVisible = true }) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.MenuBook,
+                contentDescription = "Guide library",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp),
+            )
+          }
+        }
+
         IconButton(onClick = { viewModel.showSettings() }) {
           Icon(
               imageVector = Icons.Default.Settings,
@@ -220,6 +234,16 @@ fun NonStreamScreen(
               }
           )
         }
+      }
+
+      if (isGuideBrowserVisible) {
+        GuideBrowserSheet(
+            activeSessionId = null,
+            onLoadGuideIntoSession = { _, _, onComplete ->
+              onComplete(false, "Start Vision Agent first to load a guide into a session.")
+            },
+            onDismiss = { isGuideBrowserVisible = false },
+        )
       }
     }
   }

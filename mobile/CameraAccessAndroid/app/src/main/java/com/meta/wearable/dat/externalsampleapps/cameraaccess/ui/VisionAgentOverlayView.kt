@@ -1,7 +1,9 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +29,11 @@ fun VisionAgentOverlay(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp),
     ) {
         VisionAgentStatusBar(connectionState = uiState.connectionState)
+
+        if (uiState.activeProtocolTitle != null || uiState.checklistItems.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            VisionAgentChecklistCard(uiState = uiState)
+        }
 
         if (uiState.transcriptHistory.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -68,6 +75,9 @@ fun VisionAgentDebugPanel(
         uiState.provider?.let { VisionAgentDebugLine("Provider", it) }
         uiState.callId?.let { VisionAgentDebugLine("Call", it) }
         uiState.agentSessionId?.let { VisionAgentDebugLine("Agent", it) }
+        uiState.activeProtocolTitle?.let { VisionAgentDebugLine("Protocol", it) }
+        uiState.currentChecklistStep?.let { VisionAgentDebugLine("Checklist", it) }
+        uiState.activeProtocolSummary?.let { VisionAgentDebugLine("Guide", it) }
         VisionAgentDebugLine("Frames", uiState.videoFrames.toString())
         VisionAgentDebugLine("Audio", uiState.audioChunks.toString())
         if (uiState.visionAgentError != null) {
@@ -107,6 +117,98 @@ private fun VisionAgentDebugLine(
         overflow = TextOverflow.Ellipsis,
     )
 }
+
+@Composable
+private fun VisionAgentChecklistCard(
+    uiState: VisionAgentUiState,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.58f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        uiState.activeProtocolTitle?.let { title ->
+            Text(
+                text = title,
+                color = Color.White,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        uiState.currentChecklistStep?.let { step ->
+            Text(
+                text = "Now: $step",
+                color = Color(0xFFE3F2FD),
+                fontSize = 13.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (uiState.riskFlags.isNotEmpty()) {
+            Text(
+                text = "Flags: ${uiState.riskFlags.joinToString(", ")}",
+                color = Color(0xFFFFCC80),
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        uiState.checklistItems.take(3).forEach { item ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = checklistBulletFor(item.status),
+                    color = checklistColorFor(item.status),
+                    fontSize = 13.sp,
+                )
+                Text(
+                    text = item.label,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+        val guidePreview =
+            uiState.activeProtocolSummary
+                ?: uiState.activeProtocolManual
+                    ?.lineSequence()
+                    ?.map { it.trim() }
+                    ?.firstOrNull { it.isNotBlank() && !it.startsWith("#") }
+        if (!guidePreview.isNullOrBlank()) {
+            Text(
+                text = guidePreview,
+                color = Color(0xFFCFD8DC),
+                fontSize = 12.sp,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private fun checklistBulletFor(status: String): String =
+    when (status) {
+        "done" -> "DONE"
+        "active" -> "NOW"
+        "blocked" -> "HOLD"
+        else -> "NEXT"
+    }
+
+private fun checklistColorFor(status: String): Color =
+    when (status) {
+        "done" -> Color(0xFF81C784)
+        "active" -> Color(0xFF4FC3F7)
+        "blocked" -> Color(0xFFE57373)
+        else -> Color(0xFFB0BEC5)
+    }
 
 private fun visionAgentConnectionLabel(connectionState: VisionAgentConnectionState): String =
     when (connectionState) {
