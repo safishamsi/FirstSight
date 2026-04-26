@@ -34,8 +34,9 @@ TFLITE_MODEL = "/tmp/blaze_face_short_range.tflite"
 FPS          = 30.0
 BUFFER       = 300   # 10 s → 0.1 Hz freq resolution = 6 BPM steps
 DETECT_EVERY = 30
-LOW_HZ       = 0.7   # 42 BPM lower bound
+LOW_HZ       = 0.9   # 54 BPM lower bound — avoids sub-cardiac respiration harmonics
 HIGH_HZ      = 3.5   # 210 BPM upper bound
+MAX_FRAMES   = 1350  # ~45–56 s, closest to the GT spot measurement time
 
 
 def _make_detector():
@@ -55,11 +56,12 @@ def _detect_face(detector, frame):
     best = max(result.detections, key=lambda d: d.bounding_box.width * d.bounding_box.height)
     bb = best.bounding_box
     h, w = frame.shape[:2]
-    pad = int(min(bb.width, bb.height) * 0.1)
-    x1 = max(0, bb.origin_x - pad)
-    y1 = max(0, bb.origin_y - pad)
-    x2 = min(w, bb.origin_x + bb.width + pad)
-    y2 = min(h, bb.origin_y + bb.height + pad)
+    x1 = max(0, bb.origin_x)
+    y1 = max(0, bb.origin_y)
+    x2 = min(w, bb.origin_x + bb.width)
+    # Forehead-only: top 40% of face height — avoids eyes, mouth, and collar
+    # Forehead skin is flatter (less motion), minimally affected by expression changes
+    y2 = min(h, y1 + int(bb.height * 0.40))
     return (x1, y1, x2, y2)
 
 
@@ -93,7 +95,7 @@ def predict_bpm(video_path: Path) -> tuple[float | None, float]:
     bbox     = None
     fi       = 0
 
-    while True:
+    while fi < MAX_FRAMES:
         ret, frame = cap.read()
         if not ret:
             break
@@ -114,37 +116,33 @@ def predict_bpm(video_path: Path) -> tuple[float | None, float]:
         return None, 0.0
 
     rgb_means = np.array(rgb_list, dtype=np.float32)
-    freqs     = np.fft.rfftfreq(BUFFER, d=1.0 / fps)
+    n_fft     = max(BUFFER * 4, 512)
+    freqs     = np.fft.rfftfreq(n_fft, d=1.0 / fps)
     mask      = (freqs >= LOW_HZ) & (freqs <= HIGH_HZ)
 
     readings, confs = [], []
     for start in range(0, len(rgb_means) - BUFFER + 1, BUFFER // 3):
-        window     = rgb_means[start:start + BUFFER]
-        bvp        = _chrom_bvp(window, fps)
-        power      = np.abs(np.fft.rfft(bvp)) ** 2
-        # Harmonic-weighted peak selection: top-5 candidates, boost if 2x harmonic present
+        window       = rgb_means[start:start + BUFFER]
+        bvp          = _chrom_bvp(window, fps)
+        power        = np.abs(np.fft.rfft(bvp, n=n_fft)) ** 2
         masked_power = power * mask
-        candidates = np.argsort(masked_power)[-5:][::-1]
-        best_idx   = candidates[0]
-        best_score = -1.0
+        candidates   = np.argsort(masked_power)[-5:][::-1]
+        best_idx, best_score = candidates[0], -1.0
         for c_idx in candidates:
             if masked_power[c_idx] == 0:
                 continue
-            f = freqs[c_idx]
-            h_idx = int(np.argmin(np.abs(freqs - 2 * f)))
-            harmonic_ratio = power[h_idx] / (power[c_idx] + 1e-10)
-            score = power[c_idx] * 1.5 if harmonic_ratio >= 0.15 else power[c_idx]
+            f       = freqs[c_idx]
+            h_idx   = int(np.argmin(np.abs(freqs - 2 * f)))
+            h_ratio = power[h_idx] / (power[c_idx] + 1e-10)
+            score   = power[c_idx] * 1.5 if h_ratio >= 0.15 else power[c_idx]
             if score > best_score:
-                best_score = score
-                best_idx   = c_idx
-        peak_idx   = best_idx
-        peak_power = float(power[peak_idx])
+                best_score, best_idx = score, c_idx
+        peak_power = float(power[best_idx])
         noise_bins = power[~mask]
         noise      = float(noise_bins.mean()) if noise_bins.size else 1e-10
         confidence = min(peak_power / max(noise, 1e-10) / 5.0, 1.0)
-
         if confidence > CONF_THRESHOLD:
-            readings.append(float(freqs[peak_idx] * 60))
+            readings.append(float(freqs[best_idx] * 60))
             confs.append(confidence)
 
     if not readings:
@@ -155,9 +153,9 @@ def predict_bpm(video_path: Path) -> tuple[float | None, float]:
     sorted_bpm = np.array(readings)[sorted_idx]
     sorted_w   = weights[sorted_idx]
     cumw       = np.cumsum(sorted_w)
-    median_bpm = float(sorted_bpm[np.searchsorted(cumw, cumw[-1] / 2)])
+    pred_bpm   = round(float(sorted_bpm[np.searchsorted(cumw, cumw[-1] / 2)]), 1)
     avg_conf   = round(float(weights.mean()), 3)
-    return round(median_bpm, 1), avg_conf
+    return pred_bpm, avg_conf
 
 
 def main():
