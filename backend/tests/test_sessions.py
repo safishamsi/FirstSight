@@ -1,3 +1,4 @@
+import asyncio
 import time
 from unittest.mock import AsyncMock, patch
 
@@ -5,7 +6,10 @@ from fastapi.testclient import TestClient
 from vision_agents.core.events import EventManager
 
 from app.agent_events import AgentCustomEventBridgeProcessor, SpatialToolResultEvent
+from app.config import get_settings
 from app.main import app
+from app.playbook_orchestrator import handle_user_turn
+from app.playbook_tools import ToolExecutionResult
 from app.guidance_runtime import search_and_optionally_activate_protocol
 from app.pipeline_bridge import _extract_retry_delay_seconds
 from app.session_manager import session_manager
@@ -697,7 +701,215 @@ def test_agent_context_includes_active_step_tooling() -> None:
 
     context = session_manager.build_agent_context(session_id)
     assert "Suggested tool: facial_droop." in context
+    assert "Tool query:" not in context
     assert "Wait for explicit human readiness before running the tool." in context
+
+
+def test_orchestrator_returns_current_tool_step_guidance_when_user_asks_what_next() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "stroke_fast"},
+    )
+    assert set_response.status_code == 200
+
+    outcome = asyncio.run(handle_user_turn(session_id, "what next", get_settings()))
+    assert outcome.handled is True
+    assert outcome.response_text is not None
+    assert "frame the patient's face clearly" in outcome.response_text.lower()
+
+
+def test_orchestrator_executes_tool_step_after_readiness_confirmation() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "stroke_fast"},
+    )
+    assert set_response.status_code == 200
+
+    with patch(
+        "app.playbook_orchestrator.execute_step_tool",
+        new=AsyncMock(
+            return_value=ToolExecutionResult(
+                tool_name="facial_droop",
+                status="positive",
+                summary="The facial droop check looks suspicious for asymmetry.",
+                payload={"is_drooping": True},
+                should_advance=True,
+            )
+        ),
+    ):
+        outcome = asyncio.run(handle_user_turn(session_id, "okay, run the check now", get_settings()))
+
+    assert outcome.handled is True
+    assert outcome.response_text is not None
+    assert "facial droop check looks suspicious" in outcome.response_text.lower()
+
+    session_payload = client.get(f"/sessions/{session_id}").json()
+    assert session_payload["active_checklist"][0]["status"] == "done"
+    assert session_payload["active_checklist"][1]["status"] == "active"
+    assert session_payload["tool_results"][-1]["tool_name"] == "facial_droop"
+
+
+def test_orchestrator_advances_user_action_step_on_completion_phrase() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "choking_adult"},
+    )
+    assert set_response.status_code == 200
+
+    outcome = asyncio.run(handle_user_turn(session_id, "done, next step", get_settings()))
+    assert outcome.handled is True
+    assert outcome.response_text is not None
+    assert "call emergency services" in outcome.response_text.lower()
+
+
+def test_orchestrator_advances_decision_step_on_simple_confirmation() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "aed_retrieval"},
+    )
+    assert set_response.status_code == 200
+
+    outcome = asyncio.run(handle_user_turn(session_id, "yes, someone is calling now", get_settings()))
+    assert outcome.handled is True
+    assert outcome.response_text is not None
+    assert "pan the camera" in outcome.response_text.lower()
+
+
+def test_stroke_protocol_is_trimmed_to_three_demo_checks() -> None:
+    client = TestClient(app)
+
+    response = client.get("/protocols/stroke_fast")
+    assert response.status_code == 200
+    payload = response.json()
+    labels = [item["label"] for item in payload["checklist_template"]]
+    assert labels == [
+        "Is face droopy?",
+        "Raise hands check.",
+        "Is speech slurred?",
+    ]
+
+
+def test_orchestrator_runs_aed_tool_on_search_like_language() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "aed_retrieval"},
+    )
+    assert set_response.status_code == 200
+
+    asyncio.run(handle_user_turn(session_id, "yes, someone is calling now", get_settings()))
+
+    with patch(
+        "app.playbook_orchestrator.execute_step_tool",
+        new=AsyncMock(
+            return_value=ToolExecutionResult(
+                tool_name="box_query",
+                status="positive",
+                summary="I found a likely AED and marked it on screen.",
+                payload={"found": True},
+                should_advance=True,
+                overlays=[],
+            )
+        ),
+    ):
+        outcome = asyncio.run(handle_user_turn(session_id, "help me find the nearest AED", get_settings()))
+
+    assert outcome.handled is True
+    assert outcome.response_text is not None
+    assert "found a likely aed" in outcome.response_text.lower()
+
+
+def test_orchestrator_accepts_speech_normal_phrase_for_stroke_decision() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "stroke_fast"},
+    )
+    assert set_response.status_code == 200
+
+    with patch(
+        "app.playbook_orchestrator.execute_step_tool",
+        new=AsyncMock(
+            side_effect=[
+                ToolExecutionResult(
+                    tool_name="facial_droop",
+                    status="negative",
+                    summary="The facial droop check did not find obvious asymmetry.",
+                    payload={"is_drooping": False},
+                    should_advance=True,
+                ),
+                ToolExecutionResult(
+                    tool_name="spatial_query",
+                    status="negative",
+                    summary="The arm raise looked even on both sides.",
+                    payload={"status": "negative"},
+                    should_advance=True,
+                ),
+            ]
+        ),
+    ):
+        asyncio.run(handle_user_turn(session_id, "run the check now", get_settings()))
+        asyncio.run(handle_user_turn(session_id, "run the check now", get_settings()))
+        outcome = asyncio.run(handle_user_turn(session_id, "speech sounds normal", get_settings()))
+
+    assert outcome.handled is True
+    assert outcome.response_text is not None
+    assert "checklist is complete" in outcome.response_text.lower()
+
+
+def test_clear_checklist_route_resets_active_protocol() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "stroke_fast"},
+    )
+    assert set_response.status_code == 200
+
+    clear_response = client.delete(f"/sessions/{session_id}/checklist")
+    assert clear_response.status_code == 200
+    payload = clear_response.json()
+    assert payload["active_checklist"] == []
+    assert payload["incident_state"]["active_protocol_id"] is None
+    assert payload["tool_results"] == []
 
 
 def test_speech_guidance_search_does_not_replace_active_protocol() -> None:

@@ -1,32 +1,20 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.ui
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,488 +22,345 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.meta.wearable.dat.externalsampleapps.cameraaccess.visionagent.VisionAgentMode
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.settings.SettingsManager
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tag = "SettingsScreen"
-    var geminiAPIKey by remember { mutableStateOf(SettingsManager.geminiAPIKey) }
-    var systemPrompt by remember { mutableStateOf(SettingsManager.geminiSystemPrompt) }
-    var aiBackendMode by remember { mutableStateOf(SettingsManager.aiBackendMode) }
-    var backendBaseUrl by remember { mutableStateOf(SettingsManager.backendBaseUrl) }
+    fun loadDraft(): AgentProfileDraft = AgentProfileDraft.fromSettings()
+
+    var draft by remember { mutableStateOf(loadDraft()) }
     var backendUserId by remember { mutableStateOf(SettingsManager.backendUserId) }
-    var backendUserName by remember { mutableStateOf(SettingsManager.backendUserName) }
-    var backendSpeechPipeline by remember { mutableStateOf(SettingsManager.backendSpeechPipeline) }
-    var backendEnablePoseProcessor by remember { mutableStateOf(SettingsManager.backendEnablePoseProcessor) }
-    var backendGeminiModel by remember { mutableStateOf(SettingsManager.backendGeminiModel) }
-    var backendFastWhisperModelSize by remember { mutableStateOf(SettingsManager.backendFastWhisperModelSize) }
-    var backendFastWhisperDevice by remember { mutableStateOf(SettingsManager.backendFastWhisperDevice) }
-    var backendTurnDelayMs by remember { mutableStateOf(SettingsManager.backendTurnDelayMs.toString()) }
-    var backendTtsEnabled by remember { mutableStateOf(SettingsManager.backendTtsEnabled) }
     var openClawHost by remember { mutableStateOf(SettingsManager.openClawHost) }
     var openClawPort by remember { mutableStateOf(SettingsManager.openClawPort.toString()) }
     var openClawHookToken by remember { mutableStateOf(SettingsManager.openClawHookToken) }
     var openClawGatewayToken by remember { mutableStateOf(SettingsManager.openClawGatewayToken) }
-    var webrtcSignalingURL by remember { mutableStateOf(SettingsManager.webrtcSignalingURL) }
-    var visionToolBaseUrl by remember { mutableStateOf(SettingsManager.visionToolBaseUrl) }
     var visionToolAuthToken by remember { mutableStateOf(SettingsManager.visionToolAuthToken) }
-    var videoStreamingEnabled by remember { mutableStateOf(SettingsManager.videoStreamingEnabled) }
-    var proactiveNotificationsEnabled by remember { mutableStateOf(SettingsManager.proactiveNotificationsEnabled) }
+    var webrtcSignalingUrl by remember { mutableStateOf(SettingsManager.webrtcSignalingURL) }
+    var backendFastWhisperDevice by remember { mutableStateOf(SettingsManager.backendFastWhisperDevice) }
+    var showAdvanced by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
-    val isVisionAgentBackendMode = aiBackendMode == VisionAgentMode.VISION_AGENT_BACKEND
-    val isRealtimeBackendMode = backendSpeechPipeline == "realtime"
 
-    fun save() {
-        SettingsManager.geminiAPIKey = geminiAPIKey.trim()
-        SettingsManager.geminiSystemPrompt = systemPrompt.trim()
-        SettingsManager.aiBackendMode = aiBackendMode
-        SettingsManager.backendBaseUrl = backendBaseUrl.trim()
+    fun saveAndExit() {
+        draft.saveToSettings()
         SettingsManager.backendUserId = backendUserId.trim()
-        SettingsManager.backendUserName = backendUserName.trim()
-        SettingsManager.backendSpeechPipeline = backendSpeechPipeline
-        SettingsManager.backendEnablePoseProcessor = backendEnablePoseProcessor
-        SettingsManager.backendGeminiModel = backendGeminiModel.trim()
-        SettingsManager.backendFastWhisperModelSize = backendFastWhisperModelSize
-        SettingsManager.backendFastWhisperDevice = backendFastWhisperDevice
-        backendTurnDelayMs.trim().toIntOrNull()?.let { SettingsManager.backendTurnDelayMs = it }
-        SettingsManager.backendTtsEnabled = backendTtsEnabled
         SettingsManager.openClawHost = openClawHost.trim()
         openClawPort.trim().toIntOrNull()?.let { SettingsManager.openClawPort = it }
         SettingsManager.openClawHookToken = openClawHookToken.trim()
         SettingsManager.openClawGatewayToken = openClawGatewayToken.trim()
-        SettingsManager.webrtcSignalingURL = webrtcSignalingURL.trim()
-        SettingsManager.visionToolBaseUrl = visionToolBaseUrl.trim()
         SettingsManager.visionToolAuthToken = visionToolAuthToken.trim()
-        SettingsManager.videoStreamingEnabled = videoStreamingEnabled
-        SettingsManager.proactiveNotificationsEnabled = proactiveNotificationsEnabled
-        Log.d(
-            tag,
-            "Saved OpenClaw settings: host='${SettingsManager.openClawHost}' port=${SettingsManager.openClawPort} hookTokenPresent=${SettingsManager.openClawHookToken.isNotBlank()} gatewayTokenPresent=${SettingsManager.openClawGatewayToken.isNotBlank()}",
-        )
+        SettingsManager.webrtcSignalingURL = webrtcSignalingUrl.trim()
+        SettingsManager.backendFastWhisperDevice = backendFastWhisperDevice.trim().ifBlank { "cpu" }
+        onBack()
     }
 
-    fun reload() {
-        geminiAPIKey = SettingsManager.geminiAPIKey
-        systemPrompt = SettingsManager.geminiSystemPrompt
-        aiBackendMode = SettingsManager.aiBackendMode
-        backendBaseUrl = SettingsManager.backendBaseUrl
-        backendUserId = SettingsManager.backendUserId
-        backendUserName = SettingsManager.backendUserName
-        backendSpeechPipeline = SettingsManager.backendSpeechPipeline
-        backendEnablePoseProcessor = SettingsManager.backendEnablePoseProcessor
-        backendGeminiModel = SettingsManager.backendGeminiModel
-        backendFastWhisperModelSize = SettingsManager.backendFastWhisperModelSize
-        backendFastWhisperDevice = SettingsManager.backendFastWhisperDevice
-        backendTurnDelayMs = SettingsManager.backendTurnDelayMs.toString()
-        backendTtsEnabled = SettingsManager.backendTtsEnabled
-        openClawHost = SettingsManager.openClawHost
-        openClawPort = SettingsManager.openClawPort.toString()
-        openClawHookToken = SettingsManager.openClawHookToken
-        openClawGatewayToken = SettingsManager.openClawGatewayToken
-        webrtcSignalingURL = SettingsManager.webrtcSignalingURL
-        visionToolBaseUrl = SettingsManager.visionToolBaseUrl
-        visionToolAuthToken = SettingsManager.visionToolAuthToken
-        videoStreamingEnabled = SettingsManager.videoStreamingEnabled
-        proactiveNotificationsEnabled = SettingsManager.proactiveNotificationsEnabled
-        Log.d(
-            tag,
-            "Reloaded OpenClaw settings: host='${SettingsManager.openClawHost}' port=${SettingsManager.openClawPort} hookTokenPresent=${SettingsManager.openClawHookToken.isNotBlank()} gatewayTokenPresent=${SettingsManager.openClawGatewayToken.isNotBlank()}",
-        )
-    }
-
-    Column(modifier = modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Settings") },
-            navigationIcon = {
-                IconButton(onClick = {
-                    save()
-                    onBack()
-                }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
-            },
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Gemini section
-            SectionHeader("AI Session Mode")
-            Text(
-                "Choose whether the app talks directly to Gemini or routes media through the Python backend.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+    OpsScreen(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            OpsTopBar(
+                title = "AGENT CONFIG",
+                subtitle = "Map the product-facing agent surface back to the current runtime primitives.",
+                leading = {
+                    OpsIconAction(onClick = ::saveAndExit) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = OpsColor.Ink,
+                        )
+                    }
+                },
+                trailing = {
+                    OpsIconAction(onClick = ::saveAndExit) {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = "Save",
+                            tint = OpsColor.Accent,
+                        )
+                    }
+                },
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp)
+                        .navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                ModeButton(
-                    label = "Direct Gemini",
-                    selected = aiBackendMode == VisionAgentMode.DIRECT_GEMINI,
-                    onClick = { aiBackendMode = VisionAgentMode.DIRECT_GEMINI },
-                    modifier = Modifier.weight(1f),
-                )
-                ModeButton(
-                    label = "Vision Agent Backend",
-                    selected = aiBackendMode == VisionAgentMode.VISION_AGENT_BACKEND,
-                    onClick = { aiBackendMode = VisionAgentMode.VISION_AGENT_BACKEND },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            if (!isVisionAgentBackendMode) {
-                SectionHeader("Direct Gemini")
-                Text(
-                    "Use this when the Android app should talk to Gemini directly without going through the Python backend.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                MonoTextField(
-                    value = geminiAPIKey,
-                    onValueChange = { geminiAPIKey = it },
-                    label = "Gemini API Key",
-                    placeholder = "Enter Gemini API key",
-                )
-                SectionHeader("Direct Gemini Prompt")
-                OutlinedTextField(
-                    value = systemPrompt,
-                    onValueChange = { systemPrompt = it },
-                    label = { Text("System prompt") },
-                    modifier = Modifier.fillMaxWidth().height(200.dp),
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                )
-            } else {
-                SectionHeader("Vision Agent Backend")
-                Text(
-                    "The backend owns the realtime agent runtime. Pick a speech path first, then only the relevant controls appear below.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                MonoTextField(
-                    value = backendBaseUrl,
-                    onValueChange = { backendBaseUrl = it },
-                    label = "Base URL",
-                    placeholder = "http://your-mac.local:8000",
-                    keyboardType = KeyboardType.Uri,
-                )
-                MonoTextField(
-                    value = backendUserId,
-                    onValueChange = { backendUserId = it },
-                    label = "User ID",
-                    placeholder = "android-demo-user",
-                )
-                MonoTextField(
-                    value = backendUserName,
-                    onValueChange = { backendUserName = it },
-                    label = "Display Name",
-                    placeholder = "DroopDetection Demo",
-                )
-
-                SectionHeader("Backend Runtime")
-                Text(
-                    "Realtime is the recommended demo path. Fast Whisper is the advanced custom pipeline path.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ModeButton(
-                        label = "Realtime",
-                        selected = isRealtimeBackendMode,
-                        onClick = { backendSpeechPipeline = "realtime" },
-                        modifier = Modifier.weight(1f),
-                    )
-                    ModeButton(
-                        label = "Fast Whisper",
-                        selected = !isRealtimeBackendMode,
-                        onClick = { backendSpeechPipeline = "fast_whisper_pipeline" },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text("Pose Overlay Processor", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Runs the Vision Agents YOLO pose processor and exposes annotated preview frames to the React dashboard.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                OpsPanel {
+                    OpsSectionHeader("Profile Status")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OpsTag(
+                            label = if (draft.backendBaseUrl.isBlank()) "Status Draft" else "Status Ready",
+                            background = if (draft.backendBaseUrl.isBlank()) OpsColor.Warning else OpsColor.Success,
+                        )
+                        OpsTag(
+                            label =
+                                when (draft.runtimeProfile) {
+                                    AgentRuntimeProfile.REALTIME -> "Runtime Realtime"
+                                    AgentRuntimeProfile.PIPELINE -> "Runtime Pipeline"
+                                    AgentRuntimeProfile.DIRECT_GEMINI -> "Runtime Direct Gemini"
+                                },
+                            background = Color(0xFFEDEDED),
                         )
                     }
-                    Switch(
-                        checked = backendEnablePoseProcessor,
-                        onCheckedChange = { backendEnablePoseProcessor = it },
+                    OpsBodyText(text = draft.runtimeProfile.summary)
+                }
+
+                OpsPanel {
+                    OpsSectionHeader("Identity")
+                    OpsTextField(
+                        value = draft.name,
+                        onValueChange = { draft = draft.copy(name = it) },
+                        label = "Name",
+                    )
+                    OpsTextField(
+                        value = draft.systemPrompt,
+                        onValueChange = { draft = draft.copy(systemPrompt = it) },
+                        label = "System Prompt",
+                        singleLine = false,
+                        minLines = 8,
                     )
                 }
 
-                if (isRealtimeBackendMode) {
-                    Text(
-                        "Realtime mode uses Gemini native speech and vision. No custom STT, text-model, or backend TTS tuning is needed here.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                OpsPanel {
+                    OpsSectionHeader("Guidebook + Knowledge")
+                    OpsTextField(
+                        value = draft.guidebookTitle,
+                        onValueChange = { draft = draft.copy(guidebookTitle = it) },
+                        label = "Attached Guidebook",
                     )
-                } else {
-                    SectionHeader("Fast Whisper Pipeline")
-                    Text(
-                        "These controls only apply when the backend uses Fast Whisper STT with a separate Gemini text model.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    OpsTextField(
+                        value = draft.knowledgeSourceLabel,
+                        onValueChange = { draft = draft.copy(knowledgeSourceLabel = it) },
+                        label = "Knowledge Source Label",
                     )
-                    MonoTextField(
-                        value = backendGeminiModel,
-                        onValueChange = { backendGeminiModel = it },
-                        label = "Gemini Text Model",
-                        placeholder = "gemini-3-flash-preview",
+                    OpsTextField(
+                        value = draft.knowledgeEndpoint,
+                        onValueChange = { draft = draft.copy(knowledgeEndpoint = it) },
+                        label = "Knowledge Endpoint",
+                        keyboardType = KeyboardType.Uri,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf("tiny", "base", "small").forEach { size ->
-                            ModeButton(
-                                label = size,
-                                selected = backendFastWhisperModelSize == size,
-                                onClick = { backendFastWhisperModelSize = size },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        ModeButton(
-                            label = "CPU",
-                            selected = backendFastWhisperDevice == "cpu",
-                            onClick = { backendFastWhisperDevice = "cpu" },
-                            modifier = Modifier.weight(1f),
-                        )
-                        ModeButton(
-                            label = "CUDA",
-                            selected = backendFastWhisperDevice == "cuda",
-                            onClick = { backendFastWhisperDevice = "cuda" },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    MonoTextField(
-                        value = backendTurnDelayMs,
-                        onValueChange = { backendTurnDelayMs = it },
-                        label = "Turn Delay (ms)",
-                        placeholder = "1200",
+                }
+
+                OpsPanel {
+                    OpsSectionHeader("Runtime Stack")
+                    OpsChoiceRow(
+                        options = AgentRuntimeProfile.entries.map { it.title },
+                        selected = draft.runtimeProfile.title,
+                        onSelected = { selected ->
+                            draft =
+                                draft.copy(
+                                    runtimeProfile =
+                                        AgentRuntimeProfile.entries.first { it.title == selected },
+                                )
+                        },
+                    )
+                    OpsTextField(
+                        value = draft.backendBaseUrl,
+                        onValueChange = { draft = draft.copy(backendBaseUrl = it) },
+                        label = "Backend Base URL",
+                        keyboardType = KeyboardType.Uri,
+                    )
+                    OpsTextField(
+                        value = backendUserId,
+                        onValueChange = { backendUserId = it },
+                        label = "User ID",
+                    )
+                    OpsTextField(
+                        value = draft.userName,
+                        onValueChange = { draft = draft.copy(userName = it) },
+                        label = "Display Name",
+                    )
+                }
+
+                OpsPanel {
+                    OpsSectionHeader("Processors + Turn Logic")
+                    OpsSwitchRow(
+                        label = "Pose / Spatial Processor",
+                        checked = draft.processorEnabled,
+                        onCheckedChange = { draft = draft.copy(processorEnabled = it) },
+                        detail = "Turns the backend pose processor on for augmented overlays and spatial annotations.",
+                    )
+                    OpsSwitchRow(
+                        label = "Backend TTS",
+                        checked = draft.ttsEnabled,
+                        onCheckedChange = { draft = draft.copy(ttsEnabled = it) },
+                        detail = "Controls whether the backend synthesizes spoken output for the agent.",
+                    )
+                    OpsSwitchRow(
+                        label = "Proactive Notifications",
+                        checked = draft.proactiveNotificationsEnabled,
+                        onCheckedChange = { draft = draft.copy(proactiveNotificationsEnabled = it) },
+                        detail = "Allows the runtime to surface more autonomous updates when enabled.",
+                    )
+                    OpsTextField(
+                        value = draft.turnDelayMs,
+                        onValueChange = { draft = draft.copy(turnDelayMs = it) },
+                        label = "Smart Turn Delay (ms)",
                         keyboardType = KeyboardType.Number,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    ) {
-                        Column {
-                            Text("Backend TTS", style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                "If off, Android local TTS speaks backend text instead of backend PCM audio.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = backendTtsEnabled,
-                            onCheckedChange = { backendTtsEnabled = it },
+                    OpsTextField(
+                        value = draft.geminiModel,
+                        onValueChange = { draft = draft.copy(geminiModel = it) },
+                        label = "Gemini Model",
+                    )
+                    OpsTextField(
+                        value = draft.whisperModelSize,
+                        onValueChange = { draft = draft.copy(whisperModelSize = it) },
+                        label = "Whisper Model Size",
+                    )
+                    OpsTextField(
+                        value = backendFastWhisperDevice,
+                        onValueChange = { backendFastWhisperDevice = it },
+                        label = "Whisper Device",
+                    )
+                }
+
+                OpsPanel {
+                    OpsSectionHeader("Tools")
+                    OpsBodyText(text = "The built-in primitives remain part of the app contract. These switches store the frontend profile shape and line up with the current backend toggles where available.")
+                    draft.tools.forEach { tool ->
+                        OpsSwitchRow(
+                            label = tool.label,
+                            checked = tool.enabled,
+                            onCheckedChange = { enabled ->
+                                draft =
+                                    draft.copy(
+                                        tools =
+                                            draft.tools.map { existing ->
+                                                if (existing.persistentKey == tool.persistentKey) {
+                                                    existing.copy(enabled = enabled)
+                                                } else {
+                                                    existing
+                                                }
+                                            },
+                                    )
+                            },
                         )
                     }
                 }
-            }
 
-            // OpenClaw section
-            SectionHeader("OpenClaw")
-            MonoTextField(
-                value = openClawHost,
-                onValueChange = { openClawHost = it },
-                label = "Host",
-                placeholder = "http://your-mac.local",
-                keyboardType = KeyboardType.Uri,
-            )
-            MonoTextField(
-                value = openClawPort,
-                onValueChange = { openClawPort = it },
-                label = "Port",
-                placeholder = "18789",
-                keyboardType = KeyboardType.Number,
-            )
-            MonoTextField(
-                value = openClawHookToken,
-                onValueChange = { openClawHookToken = it },
-                label = "Hook Token",
-                placeholder = "Hook token",
-            )
-            MonoTextField(
-                value = openClawGatewayToken,
-                onValueChange = { openClawGatewayToken = it },
-                label = "Gateway Token",
-                placeholder = "Gateway auth token",
-            )
-
-            // WebRTC section
-            SectionHeader("WebRTC")
-            MonoTextField(
-                value = webrtcSignalingURL,
-                onValueChange = { webrtcSignalingURL = it },
-                label = "Signaling URL",
-                placeholder = "wss://your-server.example.com",
-                keyboardType = KeyboardType.Uri,
-            )
-
-            SectionHeader("Vision Tool")
-            MonoTextField(
-                value = visionToolBaseUrl,
-                onValueChange = { visionToolBaseUrl = it },
-                label = "Service URL",
-                placeholder = "http://your-mac.local:8765",
-                keyboardType = KeyboardType.Uri,
-            )
-            MonoTextField(
-                value = visionToolAuthToken,
-                onValueChange = { visionToolAuthToken = it },
-                label = "Auth Token",
-                placeholder = "Optional bearer token",
-            )
-
-            // Video
-            SectionHeader("Video")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text("Video Streaming", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Disable to save battery. Audio remains active.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                OpsPanel {
+                    OpsSectionHeader("Interaction")
+                    OpsChoiceRow(
+                        options = TriggerMode.entries.map { it.label },
+                        selected = draft.triggerMode.label,
+                        onSelected = { selected ->
+                            draft =
+                                draft.copy(
+                                    triggerMode = TriggerMode.entries.first { it.label == selected },
+                                )
+                        },
+                    )
+                    OpsSwitchRow(
+                        label = "Voice Synthesis",
+                        checked = draft.outputVoiceEnabled,
+                        onCheckedChange = { draft = draft.copy(outputVoiceEnabled = it) },
+                    )
+                    OpsSwitchRow(
+                        label = "HUD Overlay Data",
+                        checked = draft.outputOverlayEnabled,
+                        onCheckedChange = { draft = draft.copy(outputOverlayEnabled = it) },
                     )
                 }
-                Switch(
-                    checked = videoStreamingEnabled,
-                    onCheckedChange = { videoStreamingEnabled = it },
-                )
-            }
 
-            // Notifications
-            SectionHeader("Notifications")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            ) {
-                Column {
-                    Text("Proactive Notifications", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Off by default for the demo to avoid OpenClaw reconnect noise.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                OpsPanel {
+                    OpsSectionHeader(
+                        "Advanced Wiring",
+                        trailing = {
+                            OpsSecondaryButton(
+                                label = if (showAdvanced) "Hide" else "Show",
+                                onClick = { showAdvanced = !showAdvanced },
+                            )
+                        },
+                    )
+                    OpsBodyText(text = "These fields are still exposed because the current app runtime depends on them directly.")
+                    if (showAdvanced) {
+                        OpsTextField(
+                            value = openClawHost,
+                            onValueChange = { openClawHost = it },
+                            label = "OpenClaw Host",
+                            keyboardType = KeyboardType.Uri,
+                        )
+                        OpsTextField(
+                            value = openClawPort,
+                            onValueChange = { openClawPort = it },
+                            label = "OpenClaw Port",
+                            keyboardType = KeyboardType.Number,
+                        )
+                        OpsTextField(
+                            value = openClawHookToken,
+                            onValueChange = { openClawHookToken = it },
+                            label = "OpenClaw Hook Token",
+                        )
+                        OpsTextField(
+                            value = openClawGatewayToken,
+                            onValueChange = { openClawGatewayToken = it },
+                            label = "OpenClaw Gateway Token",
+                        )
+                        OpsTextField(
+                            value = visionToolAuthToken,
+                            onValueChange = { visionToolAuthToken = it },
+                            label = "Vision Tool Auth Token",
+                        )
+                        OpsTextField(
+                            value = webrtcSignalingUrl,
+                            onValueChange = { webrtcSignalingUrl = it },
+                            label = "WebRTC Signaling URL",
+                            keyboardType = KeyboardType.Uri,
+                        )
+                    }
+                }
+
+                OpsPanel {
+                    OpsSectionHeader("Reset")
+                    OpsBodyText(text = "Reset returns this screen to the baked-in defaults from the app and secrets file.")
+                    OpsPrimaryButton(
+                        label = "Reset All",
+                        onClick = { showResetDialog = true },
+                        isDestructive = true,
                     )
                 }
-                Switch(
-                    checked = proactiveNotificationsEnabled,
-                    onCheckedChange = { proactiveNotificationsEnabled = it },
-                )
             }
-
-            // Reset
-            TextButton(onClick = { showResetDialog = true }) {
-                Text("Reset to Defaults", color = Color.Red)
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("Reset Settings") },
-            text = { Text("This will reset all settings to the values built into the app.") },
+            title = { Text("Reset settings?") },
+            text = { Text("This clears all saved agent and runtime settings from the app.") },
             confirmButton = {
-                TextButton(onClick = {
-                    SettingsManager.resetAll()
-                    reload()
-                    showResetDialog = false
-                }) {
-                    Text("Reset", color = Color.Red)
-                }
+                OpsPrimaryButton(
+                    label = "Reset",
+                    onClick = {
+                        SettingsManager.resetAll()
+                        draft = loadDraft()
+                        backendUserId = SettingsManager.backendUserId
+                        openClawHost = SettingsManager.openClawHost
+                        openClawPort = SettingsManager.openClawPort.toString()
+                        openClawHookToken = SettingsManager.openClawHookToken
+                        openClawGatewayToken = SettingsManager.openClawGatewayToken
+                        visionToolAuthToken = SettingsManager.visionToolAuthToken
+                        webrtcSignalingUrl = SettingsManager.webrtcSignalingURL
+                        backendFastWhisperDevice = SettingsManager.backendFastWhisperDevice
+                        showResetDialog = false
+                    },
+                    isDestructive = true,
+                )
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
-                    Text("Cancel")
-                }
+                OpsSecondaryButton(
+                    label = "Cancel",
+                    onClick = { showResetDialog = false },
+                )
             },
         )
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-    )
-}
-
-@Composable
-private fun MonoTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    placeholder: String,
-    keyboardType: KeyboardType = KeyboardType.Text,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        modifier = Modifier.fillMaxWidth(),
-        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-    )
-}
-
-@Composable
-private fun ModeButton(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) AppColor.DeepBlue else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
-        ),
-    ) {
-        Text(label)
     }
 }

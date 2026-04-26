@@ -1,0 +1,6 @@
+- [ ] decision: Confirm someone is calling emergency services now.
+- [ ] agent_tool_call: Use scene understanding to help locate a visible AED or likely cabinet.
+- [ ] user_action: Ask a bystander to bring the nearest AED immediately.
+- [ ] user_action: Keep CPR going while another person gets the AED.
+- [ ] user_action: Turn on the AED as soon as it arrives and follow its voice prompts.
+- [ ] decision: Resume CPR immediately after a shock or if no shock is advised.

@@ -1,0 +1,9 @@
+{
+  "id": "anaphylaxis_severe",
+  "title": "Severe Allergic Reaction",
+  "summary": "Use when there is sudden swelling, hives, throat tightness, wheezing, or collapse after an allergen exposure.",
+  "severity": "high",
+  "incident_type": "anaphylaxis_concern",
+  "search_terms": ["anaphylaxis", "allergic reaction", "swollen lips", "swollen face", "epinephrine"],
+  "activation_triggers": ["allergic reaction", "anaphylaxis", "swollen lips", "throat tight"]
+}

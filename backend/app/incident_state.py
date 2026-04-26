@@ -13,6 +13,7 @@ class ChecklistItem:
     agent_hint: str | None = None
     speak_before: str | None = None
     tool_name: str | None = None
+    tool_query: str | None = None
     tool_prompt: str | None = None
     advance_when: str | None = None
     requires_user_confirmation: bool = False
@@ -27,6 +28,7 @@ class ChecklistItem:
             "agent_hint": self.agent_hint,
             "speak_before": self.speak_before,
             "tool_name": self.tool_name,
+            "tool_query": self.tool_query,
             "tool_prompt": self.tool_prompt,
             "advance_when": self.advance_when,
             "requires_user_confirmation": self.requires_user_confirmation,

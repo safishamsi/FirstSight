@@ -7,6 +7,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,6 +120,7 @@ fun StatusPill(
     Row(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.45f))
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -146,6 +148,7 @@ fun TranscriptView(
     Column(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.18f))
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         if (userTranscript.isNotEmpty()) {
@@ -177,6 +180,7 @@ fun ToolCallStatusView(
     Row(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.18f))
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -216,6 +220,7 @@ fun SpeakingIndicator(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.18f))
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),

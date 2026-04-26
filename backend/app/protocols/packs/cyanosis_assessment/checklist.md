@@ -1,0 +1,4 @@
+- [ ] observe: Check lips, face, and visible skin for blue, gray, or very pale color.
+- [ ] decision: If color change appears with breathing difficulty or collapse, call emergency services now.
+- [ ] agent_tool_call: Run a focused color or facial distress check if a clear close-up is available.
+- [ ] decision: If the person becomes unresponsive or stops breathing normally, switch to CPR/AED guidance.

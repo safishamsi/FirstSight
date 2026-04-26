@@ -1,0 +1,6 @@
+- [ ] action: Check that the scene is safe for you and the patient.
+- [ ] action: Tap the person and shout to check responsiveness.
+- [ ] action: Check breathing quickly.
+- [ ] action: Call emergency services or direct someone nearby to call.
+- [ ] action: Begin chest compressions if the person is not breathing normally.
+- [ ] action: Use an AED if one is available.

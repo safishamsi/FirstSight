@@ -1,0 +1,9 @@
+{
+  "id": "falls_no_recovery",
+  "title": "Fall With No Recovery",
+  "summary": "Use when someone falls, stays down, and does not recover or get up normally.",
+  "severity": "high",
+  "incident_type": "fall_no_recovery",
+  "search_terms": ["fall", "fell down", "cannot get up", "person down", "no recovery"],
+  "activation_triggers": ["fell", "fall", "cannot get up", "still on floor"]
+}

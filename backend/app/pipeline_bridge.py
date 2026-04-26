@@ -24,6 +24,7 @@ from vision_agents.core.warmup import WarmupCache
 from .agent_factory import _build_processors, build_stt, build_text_llm, build_tts
 from .config import Settings
 from .guidance_runtime import search_and_optionally_activate_protocol
+from .playbook_orchestrator import build_current_step_message, handle_user_turn
 from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -221,10 +222,18 @@ class FastWhisperPipelineBridge:
                 }
             }
         )
+        outcome = await handle_user_turn(self.session_id, prompt, self.settings)
+        if outcome.handled and outcome.response_text:
+            await self._deliver_precomposed_turn(outcome.response_text)
+            return
         await self._respond_with_text(prompt)
 
     async def prompt_guidance(self, reason: str) -> None:
         if not self.started:
+            return
+        step_message = build_current_step_message(self.session_id)
+        if step_message:
+            await self._deliver_precomposed_turn(step_message)
             return
         prompt = session_manager.build_step_guidance_prompt(self.session_id, reason=reason)
         if not prompt:
@@ -361,6 +370,10 @@ class FastWhisperPipelineBridge:
                     }
                 }
             )
+            outcome = await handle_user_turn(self.session_id, text, self.settings)
+            if outcome.handled and outcome.response_text:
+                await self._deliver_precomposed_turn(outcome.response_text)
+                return
             self._pending_user_text.append(text)
             if self._turn_task is not None:
                 self._turn_task.cancel()
@@ -506,6 +519,29 @@ class FastWhisperPipelineBridge:
                         "message": f"LLM response failed: {error_message}",
                     }
                 )
+
+    async def _deliver_precomposed_turn(self, text: str) -> None:
+        clean_text = text.strip()
+        if not clean_text:
+            return
+        session_manager.update_output_transcript(self.session_id, clean_text)
+        session_manager.append_debug_event(
+            self.session_id,
+            "orchestrated_turn",
+            {"text": clean_text},
+        )
+        await self._safe_emit(
+            {
+                "serverContent": {
+                    "outputTranscription": {"text": clean_text},
+                }
+            }
+        )
+        if self._tts is None:
+            session_manager.complete_turn(self.session_id)
+            await self._safe_emit({"serverContent": {"turnComplete": True}})
+            return
+        await self._tts.send(clean_text, participant=self._participant)
 
     async def _emit_rate_limit_notice(self, retry_after_seconds: int) -> None:
         message = (

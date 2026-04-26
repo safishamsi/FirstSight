@@ -1,0 +1,6 @@
+- [ ] user_action: Move nearby hazards away and protect the person's head if possible.
+- [ ] user_action: Do not restrain the person and do not put anything in the mouth.
+- [ ] user_action: Time the seizure.
+- [ ] observe: Watch for breathing after the seizure stops.
+- [ ] decision: Call emergency services if breathing is absent, recovery is poor, or the event is prolonged.
+- [ ] user_action: After the seizure, place the person on their side if trained and safe to do so.

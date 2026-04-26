@@ -1,0 +1,9 @@
+{
+  "id": "diabetic_emergency_altered",
+  "title": "Diabetic Emergency / Altered Consciousness",
+  "summary": "Use when the person is confused, suddenly very drowsy, breathing abnormally, or collapses and diabetes is possible or known.",
+  "severity": "high",
+  "incident_type": "diabetic_emergency_concern",
+  "search_terms": ["diabetic emergency", "low blood sugar", "DKA", "altered consciousness", "confused diabetic"],
+  "activation_triggers": ["diabetic", "low sugar", "high sugar", "confused", "altered"]
+}

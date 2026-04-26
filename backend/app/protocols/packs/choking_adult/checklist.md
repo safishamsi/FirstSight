@@ -1,0 +1,6 @@
+- [ ] user_action: Ask if the person can cough or speak.
+- [ ] decision: If they cannot breathe or speak well, call emergency services now.
+- [ ] user_action: Encourage coughing if they can still cough forcefully.
+- [ ] user_action: If they cannot cough or speak, begin choking first aid per local training.
+- [ ] agent_tool_call: Run airway or mouth obstruction check if a clear view is available.
+- [ ] decision: If the person becomes unresponsive, switch to CPR/AED guidance immediately.

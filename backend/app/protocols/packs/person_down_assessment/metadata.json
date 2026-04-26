@@ -1,0 +1,8 @@
+{
+  "id": "person_down_assessment",
+  "title": "Person Down Assessment",
+  "severity": "high",
+  "incident_type": "person_down",
+  "search_terms": ["person on floor", "fallen", "collapse", "lying down", "person down"],
+  "activation_triggers": ["person on floor", "fell", "fallen", "collapse", "lying down"]
+}

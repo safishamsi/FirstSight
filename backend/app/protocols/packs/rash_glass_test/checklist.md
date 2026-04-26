@@ -1,0 +1,4 @@
+- [ ] observe: Check whether the rash looks widespread, dark, or concerning.
+- [ ] user_action: If trained and safe, try a guided glass test observation.
+- [ ] decision: If the rash does not fade and the person is unwell, call emergency services or urgent medical help now.
+- [ ] observe: Watch for fever, confusion, severe breathing trouble, or collapse.

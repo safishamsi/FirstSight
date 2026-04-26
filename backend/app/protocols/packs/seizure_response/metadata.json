@@ -1,0 +1,9 @@
+{
+  "id": "seizure_response",
+  "title": "Seizure First Aid",
+  "summary": "Use when a person has convulsions, loses posture, or is recovering after a seizure-like episode.",
+  "severity": "high",
+  "incident_type": "seizure_concern",
+  "search_terms": ["seizure", "convulsing", "shaking", "fits", "post seizure"],
+  "activation_triggers": ["seizure", "convulsing", "shaking", "fits"]
+}

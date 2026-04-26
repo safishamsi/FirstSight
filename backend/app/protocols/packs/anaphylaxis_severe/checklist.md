@@ -1,0 +1,5 @@
+- [ ] decision: Call emergency services now if severe allergic symptoms are present.
+- [ ] user_action: Help the person use an epinephrine auto-injector if they have one and are unable to self-administer.
+- [ ] user_action: Keep the person lying flat or in the position that best supports breathing, unless they are vomiting.
+- [ ] observe: Watch for worsening breathing, collapse, or reduced responsiveness.
+- [ ] decision: If the person stops breathing normally, switch to CPR/AED guidance.

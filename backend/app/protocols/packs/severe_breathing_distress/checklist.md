@@ -1,0 +1,5 @@
+- [ ] decision: Call emergency services if the person is struggling to breathe or deteriorating.
+- [ ] user_action: Help the person sit in a position that makes breathing easier.
+- [ ] observe: Watch for blue, gray, or very pale lips or face.
+- [ ] agent_check: Use the camera view to assess visible distress and posture.
+- [ ] decision: If the person becomes unresponsive or stops breathing normally, switch to CPR/AED guidance.

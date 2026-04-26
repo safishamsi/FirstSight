@@ -1,0 +1,9 @@
+{
+  "id": "infant_distress",
+  "title": "Infant Distress Escalation",
+  "summary": "Use when an infant looks limp, blue, unusually quiet, is choking, or has troubling breathing pauses.",
+  "severity": "high",
+  "incident_type": "infant_distress",
+  "search_terms": ["infant distress", "baby not breathing", "blue lips baby", "choking infant", "limp baby"],
+  "activation_triggers": ["baby not breathing", "blue baby", "limp baby", "infant choking"]
+}

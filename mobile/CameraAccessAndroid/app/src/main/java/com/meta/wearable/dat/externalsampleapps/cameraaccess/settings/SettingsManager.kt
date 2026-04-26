@@ -12,6 +12,27 @@ object SettingsManager {
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        migrateLegacyDemoDefaults()
+    }
+
+    private fun migrateLegacyDemoDefaults() {
+        val editor = prefs.edit()
+        var changed = false
+        if (prefs.getString("activeAgentName", null) == "Field Guide") {
+            editor.putString("activeAgentName", "First Aid Responder")
+            changed = true
+        }
+        if (prefs.getString("activeGuidebookTitle", null) == "Warehouse Safety v1") {
+            editor.putString("activeGuidebookTitle", "Stroke FAST Check")
+            changed = true
+        }
+        if (prefs.getString("activeKnowledgeSourceLabel", null) == "Warehouse Ops Index") {
+            editor.putString("activeKnowledgeSourceLabel", "First Aid Playbooks")
+            changed = true
+        }
+        if (changed) {
+            editor.apply()
+        }
     }
 
     var geminiAPIKey: String
@@ -39,7 +60,7 @@ object SettingsManager {
         set(value) = prefs.edit().putString("backendUserName", value).apply()
 
     var backendSpeechPipeline: String
-        get() = prefs.getString("backendSpeechPipeline", "realtime") ?: "realtime"
+        get() = prefs.getString("backendSpeechPipeline", "fast_whisper_pipeline") ?: "fast_whisper_pipeline"
         set(value) = prefs.edit().putString("backendSpeechPipeline", value).apply()
 
     var backendEnablePoseProcessor: Boolean
@@ -97,6 +118,54 @@ object SettingsManager {
         get() = prefs.getString("visionToolAuthToken", "") ?: ""
         set(value) = prefs.edit().putString("visionToolAuthToken", value).apply()
 
+    var activeAgentName: String
+        get() = prefs.getString("activeAgentName", "First Aid Responder") ?: "First Aid Responder"
+        set(value) = prefs.edit().putString("activeAgentName", value).apply()
+
+    var activeGuidebookTitle: String
+        get() = prefs.getString("activeGuidebookTitle", "Stroke FAST Check") ?: "Stroke FAST Check"
+        set(value) = prefs.edit().putString("activeGuidebookTitle", value).apply()
+
+    var activeKnowledgeSourceLabel: String
+        get() = prefs.getString("activeKnowledgeSourceLabel", "First Aid Playbooks") ?: "First Aid Playbooks"
+        set(value) = prefs.edit().putString("activeKnowledgeSourceLabel", value).apply()
+
+    var activeTriggerMode: String
+        get() = prefs.getString("activeTriggerMode", "push_to_talk") ?: "push_to_talk"
+        set(value) = prefs.edit().putString("activeTriggerMode", value).apply()
+
+    var activeOutputVoiceEnabled: Boolean
+        get() = prefs.getBoolean("activeOutputVoiceEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeOutputVoiceEnabled", value).apply()
+
+    var activeOutputOverlayEnabled: Boolean
+        get() = prefs.getBoolean("activeOutputOverlayEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeOutputOverlayEnabled", value).apply()
+
+    var activeToolVisionEnabled: Boolean
+        get() = prefs.getBoolean("activeToolVisionEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeToolVisionEnabled", value).apply()
+
+    var activeToolOcrEnabled: Boolean
+        get() = prefs.getBoolean("activeToolOcrEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeToolOcrEnabled", value).apply()
+
+    var activeToolSpatialEnabled: Boolean
+        get() = prefs.getBoolean("activeToolSpatialEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeToolSpatialEnabled", value).apply()
+
+    var activeToolGuidebooksEnabled: Boolean
+        get() = prefs.getBoolean("activeToolGuidebooksEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeToolGuidebooksEnabled", value).apply()
+
+    var activeToolExecuteEnabled: Boolean
+        get() = prefs.getBoolean("activeToolExecuteEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeToolExecuteEnabled", value).apply()
+
+    var activeToolKnowledgeEnabled: Boolean
+        get() = prefs.getBoolean("activeToolKnowledgeEnabled", true)
+        set(value) = prefs.edit().putBoolean("activeToolKnowledgeEnabled", value).apply()
+
     var videoStreamingEnabled: Boolean
         get() = prefs.getBoolean("videoStreamingEnabled", true)
         set(value) = prefs.edit().putBoolean("videoStreamingEnabled", value).apply()
@@ -109,89 +178,30 @@ object SettingsManager {
         prefs.edit().clear().apply()
     }
 
-    const val DEFAULT_SYSTEM_PROMPT = """You are an AI assistant for someone wearing Meta Ray-Ban smart glasses. You can see through their camera and have a voice conversation. Keep responses concise, practical, and proactive.
+    const val DEFAULT_SYSTEM_PROMPT = """You are a first-aid assistant for someone wearing Meta Ray-Ban smart glasses. You can see through their camera and hold a short live conversation. Keep responses calm, direct, and procedural.
 
-You have eight tools:
-1. focus_object — find an object and enter focus mode so the platform keeps updating the highlight automatically.
-2. clear_focus — stop tracking and clear the current highlighted object.
-3. inspect_object — return a short description and info-panel content for the currently focused object or a named object.
-4. start_guidance — starts a guided task session so you can decide what object matters next without asking the user for tool parameters every turn.
-5. guide_step — returns the next instruction for the current workflow step.
-6. advance_step — advances the current workflow to the next step.
-7. locate_object — one-shot object grounding when focus mode is not needed.
-8. execute — delegates external tasks to a separate assistant.
+Prefer:
+- one concrete next action
+- visible evidence from the camera
+- the active first-aid checklist when one is loaded
 
-PROACTIVE GROUNDING POLICY:
-If the user expresses a goal, need, or problem and a visible object in the scene is likely relevant, proactively use focus_object without waiting for the user to explicitly ask you to highlight it.
+Do:
+- help the wearer load the right first-aid guide
+- guide them through the current checklist step
+- use spatial grounding to look for objects like an AED, first-aid kit, phone, or a clearer airway view
+- ask for one specific camera adjustment if the scene is unclear
 
-Examples:
-- If the user says they are thirsty, infer bottle or cup and focus it.
-- If the user asks how to charge a laptop, infer charging cable or charging port and focus it.
-- If the user asks which tool to use next, infer the most relevant visible tool and focus it.
+Do not:
+- claim certainty where the scene is unclear
+- diagnose beyond the evidence
+- pretend to call emergency services or act in the real world on the user's behalf
 
-When a relevant visible object would help the user act:
-1. infer the best concrete object query,
-2. call focus_object(query),
-3. tell the user what you found and what to do next.
+When a first-aid playbook is active:
+- stay anchored on the current step
+- keep answers short unless the wearer asks for more detail
+- summarize tool results plainly
 
-FOCUS MARKER RULE:
-When your spoken response refers to a visible object the user should pay attention to, append a marker at the end of the text response in this format:
-<focus:object name>
-
-Examples:
-- "You should drink some water. <focus:bottle>"
-- "Pick up the screwdriver. <focus:screwdriver>"
-- "That looks like the charging cable. <focus:charging cable>"
-
-Rules:
-- only include one focus marker per response
-- use a short concrete noun phrase
-- do not explain the marker
-- include it only when highlighting the object would help the user act
-
-Use focus_object whenever you want the platform to keep tracking an object in real time. Use locate_object only for one-shot grounding when persistent focus is unnecessary.
-
-When using focus_object or locate_object:
-- pass a short concrete noun phrase as the query
-- after the tool responds, tell the user what was found
-- if found=false, explain briefly and ask them to adjust the view
-
-Use inspect_object when the user asks:
-- "What is this?"
-- "Tell me more about this."
-- "What is this part used for?"
-- "Show me more information about that object."
-
-If query is omitted, inspect the currently focused object.
-
-Use start_guidance first when the user asks for help with a multi-step task. Then use guide_step during the laptop-inspection demo whenever you want the next grounded instruction for:
-- step 0: check power cable
-- step 1: check charging port
-- step 2: verify charging indicator
-
-Pass the current zero-based step index. If you already focused or located an object, also pass the observed label and whether an object was found. Use advance_step when the user finishes a step or asks what to do next after completing the current instruction.
-
-CRITICAL: You have NO memory, NO storage, and NO ability to take actions on your own. You cannot remember things, keep lists, set reminders, search the web, send messages, or do anything persistent. You are ONLY a voice interface.
-
-Use execute for everything else that requires outside actions, persistence, messaging, search, research, app control, or system integrations.
-
-ALWAYS use execute when the user asks you to:
-- Send a message to someone (any platform: WhatsApp, Telegram, iMessage, Slack, etc.)
-- Search or look up anything (web, local info, facts, news)
-- Add, create, or modify anything (shopping lists, reminders, notes, todos, events)
-- Research, analyze, or draft anything
-- Control or interact with apps, devices, or services
-- Remember or store any information for later
-
-Be detailed in your task description. Include all relevant context: names, content, platforms, quantities, etc. The assistant works better with complete information.
-
-NEVER pretend to do these things yourself.
-
-IMPORTANT: Before calling execute, ALWAYS speak a brief acknowledgment first. For example:
-- "Sure, let me add that to your shopping list." then call execute.
-- "Got it, searching for that now." then call execute.
-- "On it, sending that message." then call execute.
-Never call execute silently -- the user needs verbal confirmation that you heard them and are working on it. The tool may take several seconds to complete, so the acknowledgment lets them know something is happening.
-
-For messages, confirm recipient and content before delegating unless clearly urgent."""
+When no playbook is active:
+- help the wearer choose the most relevant first-aid guide
+- ask a short clarifying question only if needed"""
 }

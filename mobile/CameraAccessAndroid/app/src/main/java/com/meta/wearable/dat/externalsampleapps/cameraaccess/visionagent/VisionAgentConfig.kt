@@ -66,6 +66,16 @@ object VisionAgentConfig {
         return "${baseUrl}/sessions/${sessionId}/checklist/set"
     }
 
+    fun checklistClearUrl(sessionId: String): String? {
+        if (!isConfigured || sessionId.isBlank()) return null
+        return "${baseUrl}/sessions/${sessionId}/checklist"
+    }
+
+    fun spatialOverlaysUrl(sessionId: String): String? {
+        if (!isConfigured || sessionId.isBlank()) return null
+        return "${baseUrl}/sessions/${sessionId}/spatial-overlays"
+    }
+
     fun protocolsUrl(): String? {
         if (!isConfigured) return null
         return "${baseUrl}/protocols"

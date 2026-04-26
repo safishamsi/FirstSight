@@ -6,50 +6,29 @@
   "search_terms": ["stroke", "face droop", "slurred speech", "arm weakness", "fast check"],
   "activation_triggers": ["stroke", "droopy face", "drooping face", "slurring", "face droop"],
   "step_details": {
-    "check_whether_one_side_of_the_face_is_drooping": {
+    "is_face_droopy": {
       "kind": "agent_tool_call",
-      "speak_before": "Please frame the patient's face clearly and hold still for a moment.",
+      "speak_before": "Please frame the patient's face clearly and hold still for a moment, then tell me when to run the face check.",
       "agent_hint": "Wait for a clear face view, then run the facial droop check and explain whether the result looks suspicious or unclear.",
       "tool_name": "facial_droop",
       "tool_prompt": "Analyze the latest frame for facial asymmetry or droop consistent with a stroke FAST check. Return whether the face appears symmetric, drooping, or unclear.",
       "advance_when": "the facial droop tool returns a result or the agent explains that the face view is unclear and asks for a retry",
       "requires_user_confirmation": true
     },
-    "ask_the_person_to_raise_both_arms": {
-      "kind": "user_action",
-      "speak_before": "Ask the patient to raise both arms straight out in front of them and hold the pose.",
-      "agent_hint": "Tell the wearer to keep the camera steady on both shoulders, elbows, and hands."
-    },
-    "check_whether_one_arm_drifts_downward_or_cannot_be_lifted": {
-      "kind": "agent_check",
-      "speak_before": "Hold the camera on both arms while I assess whether one side drifts or stays lower.",
+    "raise_hands_check": {
+      "kind": "agent_tool_call",
+      "speak_before": "Ask the patient to raise both arms straight out in front of them, keep the camera on both arms, then tell me when to run the arm check.",
       "agent_hint": "Use pose context and the live scene to judge arm symmetry, then say whether one side looks lower or unclear.",
       "tool_name": "spatial_query",
       "tool_prompt": "Assess whether the patient has raised both arms evenly or whether one arm stays lower, drifts downward, or cannot be lifted. Return a structured assessment with confidence and uncertainty.",
       "advance_when": "the agent reports whether the arm raise looks symmetric, asymmetric, or unclear",
       "requires_user_confirmation": true
     },
-    "ask_the_person_to_repeat_a_simple_phrase": {
-      "kind": "user_action",
-      "speak_before": "Ask the patient to repeat a simple phrase clearly, then listen for slurred or unusual speech.",
-      "agent_hint": "Keep the instruction short and prepare to summarize the speech concern rather than diagnose it."
-    },
-    "check_whether_their_speech_is_slurred_or_unusual": {
+    "is_speech_slurred": {
       "kind": "decision",
-      "speak_before": "Based on what you heard, decide whether the speech sounded slurred, unusual, or unclear.",
-      "agent_hint": "Summarize the speech check and move to emergency escalation if multiple FAST signs are present.",
+      "speak_before": "Ask the patient to repeat a simple phrase, then decide whether the speech sounds slurred, unusual, or normal.",
+      "agent_hint": "Keep this short. Accept a simple yes, no, slurred, normal, or unclear answer from the wearer.",
       "advance_when": "the wearer confirms whether speech sounded normal, slurred, or unclear"
-    },
-    "call_emergency_services_immediately_if_stroke_signs_are_present": {
-      "kind": "decision",
-      "speak_before": "If stroke warning signs are present, tell the wearer to call emergency services immediately.",
-      "agent_hint": "Do not hedge if multiple FAST signs are present; make the escalation clear.",
-      "advance_when": "the wearer confirms emergency services are being called"
-    },
-    "note_the_time_symptoms_were_first_noticed": {
-      "kind": "user_action",
-      "speak_before": "Ask the wearer to note the time the symptoms were first noticed.",
-      "agent_hint": "This should be the final reminder after escalation."
     }
   }
 }

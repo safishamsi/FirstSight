@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.AudioManager
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.gemini.GeminiConfig
 import com.meta.wearable.dat.externalsampleapps.cameraaccess.stream.StreamingMode
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.vision.ObjectDetectionResult
+import com.meta.wearable.dat.externalsampleapps.cameraaccess.vision.VisionToolClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 sealed class VisionAgentConnectionState {
     object Disconnected : VisionAgentConnectionState()
@@ -33,6 +36,7 @@ data class VisionAgentTranscriptTurn(
 data class VisionAgentChecklistItem(
     val id: String,
     val label: String,
+    val kind: String,
     val status: String,
 )
 
@@ -84,13 +88,21 @@ data class VisionAgentUiState(
     val spatialContextSummary: String? = null,
     val spatialOverlays: List<VisionAgentSpatialOverlay> = emptyList(),
     val riskFlags: List<String> = emptyList(),
+    val isSpatialToolPending: Boolean = false,
 )
+
+enum class VisionAgentSpatialToolMode {
+    Box,
+    Point,
+    Outline,
+}
 
 class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(VisionAgentUiState())
     val uiState: StateFlow<VisionAgentUiState> = _uiState.asStateFlow()
 
     private val visionAgentService = VisionAgentService()
+    private val visionToolClient = VisionToolClient()
     private val audioManager = AudioManager()
     private val speechPlayer = VisionAgentSpeechPlayer(application)
     private var lastVideoFrameTime: Long = 0
@@ -275,6 +287,129 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
         }
     }
 
+    fun clearGuideFromSession(onComplete: (Boolean, String?) -> Unit = { _, _ -> }) {
+        val sessionId = _uiState.value.sessionId
+        if (sessionId.isNullOrBlank()) {
+            onComplete(false, "Start Vision Agent first to clear the active guide.")
+            return
+        }
+        val guideClient = VisionAgentGuideClient()
+        viewModelScope.launch {
+            val success =
+                withContext(Dispatchers.IO) {
+                    guideClient.clearGuideFromSession(sessionId)
+                }
+            if (success) {
+                refreshSessionStatus()
+                onComplete(true, null)
+            } else {
+                onComplete(false, "Failed to clear the active guide.")
+            }
+        }
+    }
+
+    fun sendChecklistControlMessage(
+        text: String,
+        onComplete: (Boolean, String?) -> Unit = { _, _ -> },
+    ) {
+        if (!_uiState.value.isVisionAgentActive) {
+            onComplete(false, "Start Vision Agent first to control the checklist.")
+            return
+        }
+        val normalized = text.trim()
+        if (normalized.isBlank()) {
+            onComplete(false, "No checklist command to send.")
+            return
+        }
+        visionAgentService.sendTextMessage(normalized)
+        onComplete(true, null)
+    }
+
+    fun runSpatialTool(
+        query: String,
+        bitmap: Bitmap?,
+        mode: VisionAgentSpatialToolMode,
+        onComplete: (Boolean, String?) -> Unit = { _, _ -> },
+    ) {
+        val sessionId = _uiState.value.sessionId
+        if (sessionId.isNullOrBlank()) {
+            onComplete(false, "Start Vision Agent first to use spatial tools.")
+            return
+        }
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) {
+            onComplete(false, "Enter an object or target to find.")
+            return
+        }
+        if (bitmap == null) {
+            onComplete(false, "No live frame available yet.")
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(isSpatialToolPending = true)
+        viewModelScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val detection =
+                            visionToolClient.locateObject(
+                                bitmap = bitmap,
+                                query = normalizedQuery,
+                                includeSegmentation = mode == VisionAgentSpatialToolMode.Outline,
+                            )
+                        val payload =
+                            VisionAgentSpatialOverlayUpsertPayload(
+                                contextSummary = spatialContextSummaryFor(detection, normalizedQuery, mode),
+                                mode = "expert_scope",
+                                ttlMs = 8000,
+                                replace = true,
+                                overlays = overlaysForDetection(detection, normalizedQuery, mode),
+                            )
+                        val success = visionAgentService.setSpatialOverlays(sessionId, payload)
+                        Pair(success, detection)
+                    }
+                }
+
+            _uiState.value = _uiState.value.copy(isSpatialToolPending = false)
+            result.onSuccess { (success, detection) ->
+                if (success) {
+                    refreshSessionStatus()
+                    val message =
+                        detection.message
+                            ?: if (detection.found) null else "Could not find \"$normalizedQuery\" in the current frame."
+                    onComplete(true, message)
+                } else {
+                    onComplete(false, "Failed to publish the spatial overlay.")
+                }
+            }.onFailure { error ->
+                onComplete(false, error.message ?: "Spatial tool failed.")
+            }
+        }
+    }
+
+    fun clearSpatialToolOverlays(onComplete: (Boolean, String?) -> Unit = { _, _ -> }) {
+        val sessionId = _uiState.value.sessionId
+        if (sessionId.isNullOrBlank()) {
+            onComplete(false, "Start Vision Agent first to clear overlays.")
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(isSpatialToolPending = true)
+        viewModelScope.launch {
+            val success =
+                withContext(Dispatchers.IO) {
+                    visionAgentService.clearSpatialOverlays(sessionId)
+                }
+            _uiState.value = _uiState.value.copy(isSpatialToolPending = false)
+            if (success) {
+                refreshSessionStatus()
+                onComplete(true, null)
+            } else {
+                onComplete(false, "Failed to clear spatial overlays.")
+            }
+        }
+    }
+
     private fun startSessionStatusPolling(sessionId: String) {
         sessionStatusJob?.cancel()
         sessionStatusJob =
@@ -334,6 +469,7 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
                             VisionAgentChecklistItem(
                                 id = it.id,
                                 label = it.label,
+                                kind = it.kind,
                                 status = it.status,
                             )
                         },
@@ -346,5 +482,117 @@ class VisionAgentSessionViewModel(application: Application) : AndroidViewModel(a
         super.onCleared()
         sessionStatusJob?.cancel()
         speechPlayer.shutdown()
+    }
+}
+
+private fun spatialContextSummaryFor(
+    detection: ObjectDetectionResult,
+    query: String,
+    mode: VisionAgentSpatialToolMode,
+): String =
+    if (detection.found) {
+        when (mode) {
+            VisionAgentSpatialToolMode.Box -> "Located $query and drew a bounding box."
+            VisionAgentSpatialToolMode.Point -> "Located $query and marked its center point."
+            VisionAgentSpatialToolMode.Outline -> "Located $query and drew an outline."
+        }
+    } else {
+        detection.message ?: "Could not find $query in the current frame."
+    }
+
+private fun overlaysForDetection(
+    detection: ObjectDetectionResult,
+    query: String,
+    mode: VisionAgentSpatialToolMode,
+): List<JSONObject> {
+    if (!detection.found) {
+        return listOf(
+            JSONObject().apply {
+                put("id", "spatial-text-${System.currentTimeMillis()}")
+                put("kind", "text")
+                put("label", "not found")
+                put("text", detection.message ?: "Could not find $query")
+                put("color", "#FFB74D")
+                put("source", "vision_tool_manual")
+                put("emphasis", "active")
+            },
+        )
+    }
+
+    val label = detection.label.ifBlank { query }
+    return when (mode) {
+        VisionAgentSpatialToolMode.Box -> {
+            val box = detection.bbox ?: return emptyList()
+            listOf(
+                JSONObject().apply {
+                    put("id", "spatial-box-${System.currentTimeMillis()}")
+                    put("kind", "box")
+                    put("label", label)
+                    put("color", "#52E0FF")
+                    put("source", detection.provider)
+                    put(
+                        "box",
+                        JSONObject().apply {
+                            put("xmin", (box.x * 1000f).toDouble())
+                            put("ymin", (box.y * 1000f).toDouble())
+                            put("xmax", ((box.x + box.width) * 1000f).toDouble())
+                            put("ymax", ((box.y + box.height) * 1000f).toDouble())
+                        },
+                    )
+                },
+            )
+        }
+
+        VisionAgentSpatialToolMode.Point -> {
+            val box = detection.bbox ?: return emptyList()
+            val centerX = box.x + (box.width / 2f)
+            val centerY = box.y + (box.height / 2f)
+            listOf(
+                JSONObject().apply {
+                    put("id", "spatial-point-${System.currentTimeMillis()}")
+                    put("kind", "point")
+                    put("label", label)
+                    put("color", "#FFCC43")
+                    put("source", detection.provider)
+                    put(
+                        "point",
+                        JSONObject().apply {
+                            put("x", (centerX * 1000f).toDouble())
+                            put("y", (centerY * 1000f).toDouble())
+                        },
+                    )
+                },
+            )
+        }
+
+        VisionAgentSpatialToolMode.Outline -> {
+            val points = detection.polygon.takeIf { it.isNotEmpty() }
+            if (points != null) {
+                listOf(
+                    JSONObject().apply {
+                        put("id", "spatial-outline-${System.currentTimeMillis()}")
+                        put("kind", "polygon")
+                        put("label", label)
+                        put("color", "#8BC34A")
+                        put("source", detection.provider)
+                        put(
+                            "points",
+                            org.json.JSONArray().apply {
+                                points.forEach { point ->
+                                    put(
+                                        JSONObject().apply {
+                                            put("x", (point.x * 1000f).toDouble())
+                                            put("y", (point.y * 1000f).toDouble())
+                                        },
+                                    )
+                                }
+                            },
+                        )
+                    },
+                )
+            } else {
+                overlaysForDetection(detection, query, VisionAgentSpatialToolMode.Box)
+            }
+        }
     }
 }

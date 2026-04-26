@@ -77,6 +77,14 @@ data class VisionAgentSessionStatusPayload(
     val activeChecklist: List<VisionAgentChecklistItemPayload>,
 )
 
+data class VisionAgentSpatialOverlayUpsertPayload(
+    val contextSummary: String?,
+    val mode: String?,
+    val ttlMs: Int?,
+    val replace: Boolean,
+    val overlays: List<JSONObject>,
+)
+
 class VisionAgentService {
     companion object {
         private const val TAG = "VisionAgentService"
@@ -286,6 +294,60 @@ class VisionAgentService {
         } catch (e: Exception) {
             Log.w(TAG, "Session status fetch failed sessionId=$sessionId", e)
             null
+        }
+    }
+
+    fun setSpatialOverlays(
+        sessionId: String,
+        payload: VisionAgentSpatialOverlayUpsertPayload,
+    ): Boolean {
+        val url = VisionAgentConfig.spatialOverlaysUrl(sessionId) ?: return false
+        val requestPayload =
+            JSONObject().apply {
+                put("replace", payload.replace)
+                put("context_summary", payload.contextSummary)
+                put("mode", payload.mode)
+                put("ttl_ms", payload.ttlMs)
+                put(
+                    "overlays",
+                    JSONArray().apply {
+                        payload.overlays.forEach { put(it) }
+                    },
+                )
+            }
+        val request =
+            Request.Builder()
+                .url(url)
+                .post(requestPayload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+        return try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "Spatial overlays set failed code=${response.code} sessionId=$sessionId")
+                    return false
+                }
+                true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Spatial overlays set failed sessionId=$sessionId", e)
+            false
+        }
+    }
+
+    fun clearSpatialOverlays(sessionId: String): Boolean {
+        val url = VisionAgentConfig.spatialOverlaysUrl(sessionId) ?: return false
+        val request = Request.Builder().url(url).delete().build()
+        return try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "Spatial overlays clear failed code=${response.code} sessionId=$sessionId")
+                    return false
+                }
+                true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Spatial overlays clear failed sessionId=$sessionId", e)
+            false
         }
     }
 

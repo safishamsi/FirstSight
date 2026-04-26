@@ -1,0 +1,3 @@
+- [ ] agent_tool_call: Is face droopy?
+- [ ] agent_tool_call: Raise hands check.
+- [ ] decision: Is speech slurred?

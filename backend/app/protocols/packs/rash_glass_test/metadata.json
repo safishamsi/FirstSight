@@ -1,0 +1,9 @@
+{
+  "id": "rash_glass_test",
+  "title": "Rash / Glass Test Escalation",
+  "summary": "Use when a concerning rash, mottled skin, or severe illness raises concern for urgent escalation.",
+  "severity": "high",
+  "incident_type": "rash_concern",
+  "search_terms": ["non blanching rash", "glass test", "meningitis rash", "mottled skin", "sepsis rash"],
+  "activation_triggers": ["glass test", "non blanching rash", "meningitis rash", "mottled skin"]
+}

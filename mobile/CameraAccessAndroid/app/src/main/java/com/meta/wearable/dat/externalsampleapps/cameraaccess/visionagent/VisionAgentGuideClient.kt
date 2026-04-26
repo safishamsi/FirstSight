@@ -109,6 +109,23 @@ class VisionAgentGuideClient {
         }
     }
 
+    fun clearGuideFromSession(sessionId: String): Boolean {
+        val url = VisionAgentConfig.checklistClearUrl(sessionId) ?: return false
+        val request = Request.Builder().url(url).delete().build()
+        return try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "Guide clear failed code=${response.code} sessionId=$sessionId")
+                    return false
+                }
+                true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Guide clear failed sessionId=$sessionId", e)
+            false
+        }
+    }
+
     private fun executeGuideList(request: Request): List<VisionAgentGuideSummary> {
         return try {
             client.newCall(request).execute().use { response ->

@@ -1,0 +1,5 @@
+- [ ] user_action: Ask if the person has diabetes, glucose tablets, or a medical alert tag if they can answer.
+- [ ] observe: Look for confusion, collapse, or very abnormal breathing.
+- [ ] decision: Call emergency services if the person is unresponsive or rapidly worsening.
+- [ ] user_action: If the person is awake and can swallow safely, follow trained local guidance for low blood sugar support.
+- [ ] decision: If they cannot swallow safely or become unresponsive, do not give food or drink and switch to emergency response.

@@ -1,0 +1,5 @@
+- [ ] decision: Call emergency services for collapse, confusion, or severe heat illness signs.
+- [ ] user_action: Move the person to a cooler shaded or indoor area if safe.
+- [ ] user_action: Loosen excess clothing and begin cooling measures that are safe and available.
+- [ ] observe: Watch for worsening responsiveness or breathing.
+- [ ] decision: If the person becomes unresponsive or stops breathing normally, switch to CPR/AED guidance.

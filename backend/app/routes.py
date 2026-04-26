@@ -464,6 +464,19 @@ async def complete_next_checklist_item(session_id: str) -> SessionStatusResponse
     return SessionStatusResponse(**record.to_dict())
 
 
+@router.delete("/sessions/{session_id}/checklist", response_model=SessionStatusResponse)
+def clear_session_checklist(session_id: str) -> SessionStatusResponse:
+    record = session_manager.clear_active_checklist(session_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    session_manager.append_debug_event(
+        session_id,
+        "checklist_cleared",
+        {},
+    )
+    return SessionStatusResponse(**record.to_dict())
+
+
 @router.post("/sessions/{session_id}/spatial-overlays", response_model=SessionStatusResponse)
 async def set_spatial_overlays(session_id: str, payload: SpatialOverlaySetRequest) -> SessionStatusResponse:
     current = session_manager.get(session_id)

@@ -69,6 +69,7 @@ class SessionRecord:
     latest_preview_updated_at: str | None = None
     spatial_context_summary: str | None = None
     spatial_overlays: list[dict[str, object]] = field(default_factory=list)
+    tool_results: deque[dict[str, object]] = field(default_factory=lambda: deque(maxlen=12))
     incident_state: IncidentState = field(default_factory=IncidentState)
     active_checklist: list[ChecklistItem] = field(default_factory=list)
     protocol_hits: list[ProtocolHit] = field(default_factory=list)
@@ -105,6 +106,7 @@ class SessionRecord:
             "preview_frame_updated_at": self.latest_preview_updated_at,
             "spatial_context_summary": self.spatial_context_summary,
             "spatial_overlays": list(self.spatial_overlays),
+            "tool_results": list(self.tool_results),
             "incident_state": self.incident_state.to_dict(),
             "active_checklist": [item.to_dict() for item in self.active_checklist],
             "protocol_hits": [hit.to_dict() for hit in self.protocol_hits],
@@ -456,6 +458,7 @@ class SessionManager:
                     agent_hint=item.agent_hint,
                     speak_before=item.speak_before,
                     tool_name=item.tool_name,
+                    tool_query=item.tool_query,
                     tool_prompt=item.tool_prompt,
                     advance_when=item.advance_when,
                     requires_user_confirmation=item.requires_user_confirmation,
@@ -478,6 +481,54 @@ class SessionManager:
                 record.incident_state.observations = _dedupe(
                     [*record.incident_state.observations, f"user_reported: {matched_query.strip()}"]
                 )
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def append_tool_result(
+        self,
+        session_id: str,
+        *,
+        step_id: str,
+        tool_name: str,
+        status: str,
+        summary: str,
+        payload: dict[str, object] | None = None,
+    ) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.tool_results.append(
+                {
+                    "ts": utc_now_iso(),
+                    "step_id": step_id,
+                    "tool_name": tool_name,
+                    "status": status,
+                    "summary": summary,
+                    "payload": payload or {},
+                }
+            )
+            record.incident_state.observations = _dedupe(
+                [*record.incident_state.observations, f"{tool_name}:{status}: {summary}"]
+            )
+            record.last_event_at = utc_now_iso()
+            return record
+
+    def clear_active_checklist(self, session_id: str) -> SessionRecord | None:
+        with self._lock:
+            record = self._sessions.get(session_id)
+            if record is None:
+                return None
+            record.active_checklist = []
+            record.tool_results.clear()
+            record.incident_state.active_protocol_id = None
+            record.incident_state.active_protocol_title = None
+            record.incident_state.active_protocol_summary = None
+            record.incident_state.active_protocol_manual = None
+            record.incident_state.active_checklist_id = None
+            record.incident_state.last_agent_prompted_step = None
+            record.spatial_context_summary = None
+            record.spatial_overlays = []
             record.last_event_at = utc_now_iso()
             return record
 
@@ -623,12 +674,20 @@ class SessionManager:
                     context_parts.append(f"Agent guidance: {active_step.agent_hint}.")
                 if active_step.tool_name:
                     context_parts.append(f"Suggested tool: {active_step.tool_name}.")
+                if active_step.tool_query:
+                    context_parts.append(f"Tool query: {active_step.tool_query}.")
                 if active_step.tool_prompt:
                     context_parts.append(f"Tool prompt: {active_step.tool_prompt}.")
                 if active_step.advance_when:
                     context_parts.append(f"Advance when: {active_step.advance_when}.")
                 if active_step.requires_user_confirmation:
                     context_parts.append("Wait for explicit human readiness before running the tool.")
+            if record.tool_results:
+                last_tool = record.tool_results[-1]
+                context_parts.append(
+                    "Latest tool result: "
+                    f"{last_tool['tool_name']} status={last_tool['status']} summary={last_tool['summary']}."
+                )
             if record.protocol_hits:
                 context_parts.append(
                     "Retrieved guidance: "

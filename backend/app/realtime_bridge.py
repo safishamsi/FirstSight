@@ -22,6 +22,7 @@ from .agent_factory import _build_processors, build_realtime_llm
 from .config import Settings
 from .guidance_runtime import search_and_optionally_activate_protocol
 from .pipeline_bridge import FastWhisperPipelineBridge
+from .playbook_orchestrator import build_current_step_message, handle_user_turn
 from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -183,6 +184,13 @@ class VisionSessionBridge:
             len(prompt),
             prompt[:200],
         )
+        outcome = await handle_user_turn(self.session_id, prompt, self.settings)
+        if outcome.handled and outcome.response_text:
+            await self._llm.simple_response(
+                "Respond with exactly this wording in one or two short sentences, with no extra commentary: "
+                f"{outcome.response_text}"
+            )
+            return
 
         processor_context = self._processor_context()
         if processor_context:
@@ -192,6 +200,13 @@ class VisionSessionBridge:
 
     async def prompt_guidance(self, reason: str) -> None:
         if not self.started:
+            return
+        step_message = build_current_step_message(self.session_id)
+        if step_message:
+            await self._llm.simple_response(
+                "Respond with exactly this wording in one or two short sentences, with no extra commentary: "
+                f"{step_message}"
+            )
             return
         prompt = session_manager.build_step_guidance_prompt(self.session_id, reason=reason)
         if not prompt:

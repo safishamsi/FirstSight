@@ -1,0 +1,5 @@
+- [ ] action: Check that the scene is safe.
+- [ ] action: Approach the person and check responsiveness.
+- [ ] action: Check whether the person is breathing normally.
+- [ ] observe: Look for severe bleeding or obvious injury.
+- [ ] action: If unresponsive or not breathing normally, switch to CPR steps immediately.

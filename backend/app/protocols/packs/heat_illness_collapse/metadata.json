@@ -1,0 +1,9 @@
+{
+  "id": "heat_illness_collapse",
+  "title": "Heat Illness / Heat Stroke Concern",
+  "summary": "Use when a person collapses or becomes confused in a hot setting or after heavy exertion.",
+  "severity": "high",
+  "incident_type": "heat_illness_concern",
+  "search_terms": ["heat stroke", "heat illness", "collapse in heat", "overheated", "confused in heat"],
+  "activation_triggers": ["heat stroke", "overheated", "collapse in heat", "confused in heat"]
+}

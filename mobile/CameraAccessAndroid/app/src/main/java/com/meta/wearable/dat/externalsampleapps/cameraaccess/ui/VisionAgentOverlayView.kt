@@ -1,6 +1,7 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,6 +64,7 @@ fun VisionAgentDebugPanel(
         modifier = modifier
             .fillMaxWidth()
             .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.20f))
             .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
         Text(
@@ -127,6 +129,7 @@ private fun VisionAgentChecklistCard(
             Modifier
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.58f), RoundedCornerShape(10.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.20f))
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {

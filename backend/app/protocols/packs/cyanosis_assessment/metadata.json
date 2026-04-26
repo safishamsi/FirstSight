@@ -1,0 +1,9 @@
+{
+  "id": "cyanosis_assessment",
+  "title": "Blue / Gray Color Check",
+  "summary": "Use when lips, face, or skin may look blue, gray, very pale, or mottled during distress.",
+  "severity": "high",
+  "incident_type": "cyanosis_concern",
+  "search_terms": ["blue lips", "gray lips", "cyanosis", "pale skin", "mottled skin"],
+  "activation_triggers": ["blue lips", "gray lips", "cyanosis", "very pale"]
+}

@@ -10,3 +10,4 @@ def test_health_endpoint_returns_bootstrap_flags() -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+    assert "facial_droop_api_configured" in response.json()

@@ -47,6 +47,7 @@ import kotlinx.coroutines.withContext
 fun GuideBrowserSheet(
     activeSessionId: String?,
     onLoadGuideIntoSession: (protocolId: String, matchedQuery: String?, onComplete: (Boolean, String?) -> Unit) -> Unit,
+    onClearGuideFromSession: ((onComplete: (Boolean, String?) -> Unit) -> Unit)?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -129,6 +130,25 @@ fun GuideBrowserSheet(
                     },
                 ) {
                     Text("Search")
+                }
+                if (activeSessionId != null && onClearGuideFromSession != null) {
+                    OutlinedButton(
+                        enabled = !isLoadIntoSessionPending,
+                        onClick = {
+                            isLoadIntoSessionPending = true
+                            onClearGuideFromSession.invoke { success, message ->
+                                isLoadIntoSessionPending = false
+                                errorMessage = message
+                                if (success) {
+                                    scope.launch {
+                                        loadGuides(query)
+                                    }
+                                }
+                            }
+                        },
+                    ) {
+                        Text(if (isLoadIntoSessionPending) "Clearing..." else "Clear active")
+                    }
                 }
                 TextButton(
                     onClick = {

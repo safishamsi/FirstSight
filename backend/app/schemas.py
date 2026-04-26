@@ -45,6 +45,7 @@ class ChecklistItemResponse(BaseModel):
     agent_hint: str | None = None
     speak_before: str | None = None
     tool_name: str | None = None
+    tool_query: str | None = None
     tool_prompt: str | None = None
     advance_when: str | None = None
     requires_user_confirmation: bool = False
@@ -58,9 +59,19 @@ class ChecklistTemplateItemResponse(BaseModel):
     agent_hint: str | None = None
     speak_before: str | None = None
     tool_name: str | None = None
+    tool_query: str | None = None
     tool_prompt: str | None = None
     advance_when: str | None = None
     requires_user_confirmation: bool = False
+
+
+class ToolResultResponse(BaseModel):
+    ts: str
+    step_id: str
+    tool_name: str
+    status: str
+    summary: str
+    payload: dict[str, object] = Field(default_factory=dict)
 
 
 class ProtocolHitResponse(BaseModel):
@@ -229,6 +240,7 @@ class SessionStatusResponse(BaseModel):
     preview_frame_updated_at: str | None = None
     spatial_context_summary: str | None = None
     spatial_overlays: list[SpatialOverlayResponse] = Field(default_factory=list)
+    tool_results: list[ToolResultResponse] = Field(default_factory=list)
     call_id: str | None = None
     call_type: str | None = None
     agent_session_id: str | None = None

@@ -18,10 +18,6 @@ def _build_processors(settings: Settings, *, session_id: str | None = None) -> l
                 enable_hand_tracking=settings.pose_enable_hand_tracking,
             )
         )
-    if settings.enable_face_droop_processor:
-        from .processors.face_droop import FaceDroopProcessor
-
-        processors.append(FaceDroopProcessor(fps=settings.processor_fps))
     return processors
 
 
@@ -83,7 +79,12 @@ def build_agent(settings: Settings | None = None) -> object:
     from vision_agents.core import Agent, User
     from vision_agents.plugins import getstream
 
-    processors: Sequence[object] = _build_processors(active_settings)
+    from .agent_events import AgentCustomEventBridgeProcessor
+
+    processors: Sequence[object] = [
+        *_build_processors(active_settings),
+        AgentCustomEventBridgeProcessor(),
+    ]
     if active_settings.speech_pipeline == "fast_whisper_pipeline":
         return Agent(
             edge=getstream.Edge(),

@@ -1,0 +1,9 @@
+{
+  "id": "severe_breathing_distress",
+  "title": "Severe Breathing Distress",
+  "summary": "Use when a person is struggling to breathe, gasping, speaking only a few words, or looks exhausted by breathing.",
+  "severity": "high",
+  "incident_type": "breathing_distress",
+  "search_terms": ["trouble breathing", "short of breath", "gasping", "wheezing", "breathing distress"],
+  "activation_triggers": ["can't breathe", "trouble breathing", "gasping", "wheezing"]
+}

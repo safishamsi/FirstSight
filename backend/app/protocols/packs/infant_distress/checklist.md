@@ -1,0 +1,4 @@
+- [ ] decision: Call emergency services immediately for blue color, limpness, severe breathing trouble, or unresponsiveness.
+- [ ] observe: Watch for pauses in breathing, weak cry, limpness, or choking-like motion.
+- [ ] user_action: If choking or not breathing normally, follow infant first-aid training and local emergency guidance.
+- [ ] decision: If the infant becomes unresponsive, switch to the appropriate infant emergency response path immediately.

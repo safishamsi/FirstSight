@@ -1,0 +1,5 @@
+- [ ] user_action: Check if the person responds to voice.
+- [ ] observe: Check whether the person is breathing normally.
+- [ ] decision: Call emergency services if unresponsive, confused, or badly injured.
+- [ ] user_action: Do not move the person unnecessarily if serious injury is possible.
+- [ ] decision: If not breathing normally, switch to CPR/AED guidance.

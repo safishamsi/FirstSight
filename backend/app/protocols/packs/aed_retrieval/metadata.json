@@ -22,6 +22,7 @@
       "speak_before": "Slowly pan the camera across the room and nearby walls so I can look for an AED or cabinet.",
       "agent_hint": "Use a spatial tool to look for a visible AED, defibrillator cabinet, or emergency equipment location hint. If none is visible, say that clearly and ask for a wider scan.",
       "tool_name": "box_query",
+      "tool_query": "AED defibrillator cabinet",
       "tool_prompt": "Search the current scene for a visible AED, defibrillator case, emergency cabinet, or strong candidate that likely contains an AED. Return labeled boxes and uncertainty if nothing is clearly visible.",
       "advance_when": "the spatial tool identifies a likely AED location or the agent says no AED is visible yet",
       "requires_user_confirmation": true
