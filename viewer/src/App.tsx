@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { CameraStream } from "./CameraStream";
 
 type DebugEvent = {
   ts: string;
@@ -65,6 +66,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(document.visibilityState === "visible");
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [activeTab, setActiveTab] = useState<"debug" | "streams">("debug");
   const [theme, setTheme] = useState<ViewerTheme>(() => {
     const stored = window.localStorage.getItem("viewer-theme");
     return stored === "dark" ? "dark" : "light";
@@ -186,8 +188,18 @@ function App() {
 
           <nav className="studio-nav" aria-label="Viewer sections">
             <button className="nav-tab">VIEW</button>
-            <button className="nav-tab">STREAMS</button>
-            <button className="nav-tab nav-tab-active">DEBUG</button>
+            <button
+              className={`nav-tab${activeTab === "streams" ? " nav-tab-active" : ""}`}
+              onClick={() => setActiveTab("streams")}
+            >
+              STREAMS
+            </button>
+            <button
+              className={`nav-tab${activeTab === "debug" ? " nav-tab-active" : ""}`}
+              onClick={() => setActiveTab("debug")}
+            >
+              DEBUG
+            </button>
           </nav>
 
           <div className="studio-controls">
@@ -219,7 +231,13 @@ function App() {
           </div>
         </header>
 
-        <div className="studio-body">
+        {activeTab === "streams" && (
+          <div className="studio-body studio-body-camera">
+            <CameraStream backendUrl={backendUrl} />
+          </div>
+        )}
+
+        <div className="studio-body" style={{ display: activeTab === "debug" ? "flex" : "none" }}>
           <aside className="rail rail-left">
             <section className="panel panel-tight">
               <div className="section-title">

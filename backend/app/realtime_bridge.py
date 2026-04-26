@@ -18,9 +18,10 @@ from vision_agents.core.llm.events import (
 from vision_agents.core.utils.video_forwarder import VideoForwarder
 from vision_agents.core.utils.video_track import QueuedVideoTrack
 
-from .agent_factory import _build_processors, build_realtime_llm
+from .agent_factory import _build_processors, build_realtime_llm, build_retriever
 from .config import Settings
 from .pipeline_bridge import FastWhisperPipelineBridge
+from .rag.format import format_rag_context
 from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,7 @@ class VisionSessionBridge:
         self._audio_chunks_seen = 0
         self._video_frames_seen = 0
         self._text_messages_seen = 0
+        self._retriever: object | None = None
 
     @property
     def started(self) -> bool:
@@ -181,9 +183,22 @@ class VisionSessionBridge:
             prompt[:200],
         )
 
+        rag_context = ""
+        if self._retriever is not None:
+            try:
+                scored_nodes = self._retriever.retrieve(prompt)
+                rag_context = format_rag_context(
+                    scored_nodes, max_tokens=self.settings.rag_max_context_tokens
+                )
+            except Exception:
+                logger.warning(
+                    "rag retrieval failed session_id=%s", self.session_id, exc_info=True
+                )
+
         processor_context = self._processor_context()
-        if processor_context:
-            prompt = f"{processor_context}\n\nUser request: {prompt}"
+        parts = [p for p in [rag_context, processor_context] if p]
+        if parts:
+            prompt = "\n\n".join(parts) + f"\n\nUser request: {prompt}"
 
         await self._llm.simple_response(prompt)
 
@@ -379,6 +394,7 @@ class VisionBridgeManager:
                     settings=settings,
                     emit=emit,
                 )
+            bridge._retriever = build_retriever(settings)
             self._bridges[session_id] = bridge
 
         try:

@@ -115,17 +115,18 @@ def _compute_asymmetry(landmarks) -> tuple[float, float, float, float]:
 
 
 def _load_image(image_input) -> np.ndarray | None:
-    import cv2
+    from PIL import Image as _PILImage
     if isinstance(image_input, (str, Path)):
-        bgr = cv2.imread(str(image_input))
-        if bgr is None:
+        try:
+            img = np.asarray(_PILImage.open(str(image_input)).convert("RGB"))
+        except Exception:
             return None
-        return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        return img
     img = np.asarray(image_input)
     if img.ndim == 2:
-        return cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        return np.stack([img, img, img], axis=2)
     if img.shape[2] == 4:
-        return cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+        return img[:, :, :3]
     return img
 
 
@@ -135,7 +136,7 @@ def detect_face_features(
     padding: float = 0.35,
     model_path: str | None = None,
 ) -> FaceFeatures:
-    import cv2
+    from PIL import Image as _PILImage
 
     image = _load_image(image_input)
     if image is None:
@@ -169,7 +170,9 @@ def detect_face_features(
     if crop.size == 0:
         return FaceFeatures(mouth_crop=None)
 
-    mouth_crop = cv2.resize(crop, (target_size, target_size), interpolation=cv2.INTER_AREA)
+    mouth_crop = np.asarray(
+        _PILImage.fromarray(crop).resize((target_size, target_size), _PILImage.LANCZOS)
+    )
 
     return FaceFeatures(
         mouth_crop=mouth_crop,

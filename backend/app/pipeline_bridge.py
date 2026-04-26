@@ -23,6 +23,7 @@ from vision_agents.core.warmup import WarmupCache
 
 from .agent_factory import _build_processors, build_stt, build_text_llm, build_tts
 from .config import Settings
+from .rag.format import format_rag_context
 from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ class FastWhisperPipelineBridge:
         self._turn_task: asyncio.Task[None] | None = None
         self._output_chunks_sent = 0
         self._rate_limited_until: float | None = None
+        self._retriever: object | None = None
 
     @property
     def started(self) -> bool:
@@ -439,10 +441,23 @@ class FastWhisperPipelineBridge:
                     return
                 self._rate_limited_until = None
 
-            prompt = text
+            rag_context = ""
+            if self._retriever is not None:
+                try:
+                    scored_nodes = self._retriever.retrieve(text)
+                    rag_context = format_rag_context(
+                        scored_nodes, max_tokens=self.settings.rag_max_context_tokens
+                    )
+                except Exception:
+                    logger.warning(
+                        "rag retrieval failed session_id=%s", self.session_id, exc_info=True
+                    )
+
             processor_context = self._processor_context()
-            if processor_context:
-                prompt = f"{processor_context}\n\nUser request: {text}"
+            parts = [p for p in [rag_context, processor_context] if p]
+            prompt = (
+                "\n\n".join(parts) + f"\n\nUser request: {text}" if parts else text
+            )
 
             try:
                 await self._llm.simple_response(prompt, participant=self._participant)

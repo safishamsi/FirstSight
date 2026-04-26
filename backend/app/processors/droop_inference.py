@@ -92,6 +92,20 @@ class DroopModel:
                 "brow_asymmetry": None,
             }
 
+        # Asymmetry gate: symmetric faces cannot be drooping — skip CNN entirely.
+        if features.asymmetry_score < _ASYM_GATE:
+            return {
+                "droop_probability": 0.0,
+                "is_drooping": False,
+                "severity": "none",
+                "confidence": round(1.0 - features.asymmetry_score / _ASYM_GATE, 4),
+                "face_detected": True,
+                "asymmetry_score": round(features.asymmetry_score, 4),
+                "mouth_asymmetry": round(features.mouth_asymmetry, 4),
+                "eye_asymmetry": round(features.eye_asymmetry, 4),
+                "brow_asymmetry": round(features.brow_asymmetry, 4),
+            }
+
         cnn_prob = self._run_cnn(features.mouth_crop)
         adjusted = self._adjust_prob(cnn_prob, features.asymmetry_score)
         is_drooping = adjusted >= self.threshold

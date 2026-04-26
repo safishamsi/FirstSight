@@ -1,6 +1,8 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import os
+
 import logfire
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routes import router
 from .vision_runtime import vision_runtime
 
-logfire.configure()
+logfire.configure(send_to_logfire=bool(os.getenv("LOGFIRE_TOKEN")))
 
 
 @asynccontextmanager

@@ -329,6 +329,110 @@ Useful starting points:
 
 ---
 
+## JRCALC Clinical Guidelines RAG
+
+The backend includes a Graph RAG pipeline that searches the JRCALC 2022 Clinical Practice Guidelines — the definitive UK paramedic reference — and surfaces relevant guidance in real time during a session.
+
+### How it works
+
+When the glasses wearer speaks, the backend automatically searches the JRCALC document and injects matching guidance into the AI's context before it responds. No special command is needed — just ask naturally:
+
+- *"What's the adrenaline dose for cardiac arrest?"* — the AI receives the exact dose table row from the JRCALC drug doses section
+- *"Walk me through stroke assessment"* — the AI receives the FAST assessment protocol and management steps
+- *"Is the patient breathing?"* — semantic search finds airway and breathing management sections
+
+The search uses a knowledge graph (NetworkX) on top of a FAISS vector index. Each piece of the document — chapters, sections, paragraphs, and table rows — is a node. When a query matches a node, the graph traversal also pulls in related nodes: the parent section for context, sibling chunks, and every other place the same drug or condition is mentioned across different chapters. This means a query for "adrenaline" returns the cardiac arrest dose, the anaphylaxis dose, and the paediatric dose in a single retrieval pass.
+
+The retrieved guidance is prepended to the AI's prompt, labelled `Retrieved clinical guidance (JRCALC 2022)`, so the AI can cite and reason over it while also using what it sees through the camera.
+
+### Setup
+
+**Step 1 — Get the EPUB**
+
+Place the JRCALC 2022 EPUB at:
+
+```
+data/jrcalc-clinical-guidelines-2022.epub
+```
+
+**Step 2 — Build the index** (one-time, ~5–8 minutes)
+
+```bash
+cd backend
+python -m scripts.build_rag_index \
+  --epub data/jrcalc-clinical-guidelines-2022.epub \
+  --out rag_index \
+  --gemini-api-key $GEMINI_API_KEY
+```
+
+This produces a `rag_index/` directory containing the FAISS vector index and the NetworkX graph. Expected output:
+
+```
+Ingesting EPUB: data/jrcalc-clinical-guidelines-2022.epub
+  Ingestion done in 12.3s
+  Nodes total: 7842
+    chapter: 48
+    section: 312
+    text_chunk: 4201
+    table: 198
+    table_row: 2841
+    entity: 242
+  Edges total: 18934
+Building NetworkX graph...
+  Graph saved in 0.4s → rag_index/graph.pkl
+Building FAISS index (embedding via Google text-embedding-004)...
+  FAISS index saved in 287.1s → rag_index/faiss.index  (7594 vectors)
+
+Done. Total time: 299.8s
+```
+
+**Step 3 — Enable in `.env`**
+
+Add to `backend/.env`:
+
+```env
+RAG_ENABLED=true
+```
+
+Optional tuning:
+
+```env
+RAG_TOP_K=6                  # number of nodes returned per query (default: 6)
+RAG_MAX_CONTEXT_TOKENS=1200  # max tokens of guidance injected per turn (default: 1200)
+RAG_INDEX_DIR=rag_index      # path to the built index (default: rag_index)
+```
+
+**Step 4 — Restart the backend**
+
+```bash
+make backend-restart
+```
+
+The backend logs confirm the index loaded:
+
+```
+rag retriever loaded index_dir=rag_index nodes=7842 vectors=7594 top_k=6
+```
+
+### What gets searched
+
+The JRCALC document is indexed at four levels of granularity:
+
+| Node type | Example |
+|---|---|
+| Chapter | "Cardiac Arrest" |
+| Section | "Management — Adult" |
+| Paragraph | "CPR should be initiated immediately..." |
+| Table row | `Drug: Adrenaline | Dose: 1mg | Route: IV/IO | Notes: Every 3-5 min` |
+
+Drug and condition names become entity hub nodes. A query for "adrenaline" finds the entity hub and follows its connections to every dose table row across all conditions — cardiac arrest, anaphylaxis, bradycardia — in one retrieval pass.
+
+### Disabling
+
+Set `RAG_ENABLED=false` (or omit it entirely — it defaults to `false`). The rest of the pipeline is completely unaffected.
+
+---
+
 ## Quick Start: Current iOS Prototype
 
 ### 1. Clone and open
