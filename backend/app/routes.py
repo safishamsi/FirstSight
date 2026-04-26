@@ -4,20 +4,37 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Response, WebSocket, WebSocketDisconnect, status
+from fastapi import Query
 
 from .config import Settings, get_settings
+from .guidance_runtime import search_and_optionally_activate_protocol
+from .protocols import get_protocol_registry
+from .protocols import search_protocols
 from .schemas import (
     BootstrapSummary,
+    ChecklistSetRequest,
+    ChecklistStatusRequest,
+    FacialDroopToolResponse,
+    GuideSearchRequest,
+    GuideSearchResponse,
     HealthResponse,
+    ProtocolDetailResponse,
+    ProtocolSearchResultResponse,
+    ProtocolSummaryResponse,
     SessionCreateRequest,
     SessionRuntimeConfig,
+    SpatialOverlayResponse,
+    SpatialOverlaySetRequest,
     ServiceInfo,
     SessionCreateResponse,
     SessionStatusResponse,
 )
 from .realtime_bridge import vision_bridge_manager
 from .session_manager import session_manager
+from .session_manager import ChecklistAdvanceNotAvailableError
+from .session_manager import ChecklistItemNotFoundError
 from .vision_runtime import vision_runtime
+from .tools.facial_droop import predict_session_latest_frame
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -114,6 +131,24 @@ def _stroke_demo_guidance() -> str:
     )
 
 
+def _guidance_loaded_message(protocol_title: str) -> str:
+    return (
+        f"Loaded guide: {protocol_title}. "
+        "I added a checklist and will guide the user through the next steps."
+    )
+
+
+def _sanitize_spatial_overlay_payload(
+    overlays: list[SpatialOverlayResponse],
+) -> list[dict[str, object]]:
+    sanitized: list[dict[str, object]] = []
+    for overlay in overlays:
+        payload = overlay.model_dump(exclude_none=True)
+        payload.pop("expires_at", None)
+        sanitized.append(payload)
+    return sanitized
+
+
 def _missing_configuration(settings: Settings) -> list[str]:
     missing: list[str] = []
     if settings.realtime_provider == "gemini" and not settings.gemini_api_key:
@@ -166,8 +201,8 @@ def read_health(settings: Settings = Depends(get_settings)) -> HealthResponse:
     return HealthResponse(
         status="ok",
         provider=settings.realtime_provider,
-        face_droop_processor_enabled=settings.enable_face_droop_processor,
         pose_processor_enabled=settings.enable_pose_processor,
+        facial_droop_api_configured=bool(settings.facial_droop_api_url),
     )
 
 
@@ -176,8 +211,6 @@ def read_bootstrap(settings: Settings = Depends(get_settings)) -> BootstrapSumma
     enabled_processors: list[str] = []
     if settings.enable_pose_processor:
         enabled_processors.append("yolo_pose_overlay")
-    if settings.enable_face_droop_processor:
-        enabled_processors.append("face_droop")
 
     return BootstrapSummary(
         provider=settings.realtime_provider,
@@ -192,6 +225,44 @@ def read_bootstrap(settings: Settings = Depends(get_settings)) -> BootstrapSumma
             "The /sessions websocket accepts both custom ingest events and Gemini-style setup/realtimeInput envelopes.",
         ],
     )
+
+
+@router.get("/protocols", response_model=list[ProtocolSummaryResponse])
+def list_protocols() -> list[ProtocolSummaryResponse]:
+    registry = get_protocol_registry()
+    return [ProtocolSummaryResponse(**pack.to_summary()) for pack in registry.packs]
+
+
+@router.get("/protocols/search", response_model=list[ProtocolSearchResultResponse])
+def search_guides(
+    q: str = Query(..., min_length=2),
+    incident_type: str | None = None,
+    limit: int = Query(default=8, ge=1, le=25),
+) -> list[ProtocolSearchResultResponse]:
+    registry = get_protocol_registry()
+    hits = search_protocols(registry.packs, query=q, incident_type=incident_type, limit=limit)
+    results: list[ProtocolSearchResultResponse] = []
+    for hit in hits:
+        pack = registry.get(hit.protocol_id)
+        if pack is None:
+            continue
+        results.append(
+            ProtocolSearchResultResponse(
+                **hit.to_dict(),
+                summary=pack.summary,
+                incident_type=pack.incident_type,
+            )
+        )
+    return results
+
+
+@router.get("/protocols/{protocol_id}", response_model=ProtocolDetailResponse)
+def read_protocol(protocol_id: str) -> ProtocolDetailResponse:
+    registry = get_protocol_registry()
+    pack = registry.get(protocol_id)
+    if pack is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Protocol not found")
+    return ProtocolDetailResponse(**pack.to_detail())
 
 
 @router.post("/sessions", response_model=SessionCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -311,6 +382,203 @@ def read_session_frame(session_id: str) -> Response:
     if record.latest_preview_frame is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Preview frame not available")
     return Response(content=record.latest_preview_frame, media_type=record.latest_preview_mime_type)
+
+
+@router.post("/sessions/{session_id}/guide/search", response_model=GuideSearchResponse)
+def search_session_guides(session_id: str, payload: GuideSearchRequest) -> GuideSearchResponse:
+    record = session_manager.get(session_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    outcome = search_and_optionally_activate_protocol(
+        session_id,
+        query=payload.query,
+        incident_type=payload.incident_type,
+        auto_activate=payload.auto_activate,
+        allow_replace_active=payload.auto_activate,
+    )
+    updated = session_manager.get(session_id)
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    return GuideSearchResponse(
+        query=payload.query,
+        activated_protocol_id=updated.incident_state.active_protocol_id if outcome.activated_title else None,
+        hits=[hit.to_dict() for hit in outcome.hits],
+        active_checklist=[item.to_dict() for item in updated.active_checklist],
+        incident_state=updated.incident_state.to_dict(),
+    )
+
+
+@router.post("/sessions/{session_id}/checklist/set", response_model=SessionStatusResponse)
+def set_session_checklist(session_id: str, payload: ChecklistSetRequest) -> SessionStatusResponse:
+    record = session_manager.get(session_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    registry = get_protocol_registry()
+    protocol = registry.get(payload.protocol_id)
+    if protocol is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Protocol not found")
+
+    updated = session_manager.set_checklist_from_protocol(
+        session_id,
+        protocol,
+        matched_query=payload.matched_query,
+    )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    session_manager.append_debug_event(
+        session_id,
+        "checklist_set",
+        {
+            "protocol_id": protocol.id,
+            "title": protocol.title,
+            "matched_query": payload.matched_query,
+        },
+    )
+    return SessionStatusResponse(**updated.to_dict())
+
+
+@router.post("/sessions/{session_id}/checklist/next/complete", response_model=SessionStatusResponse)
+def complete_next_checklist_item(session_id: str) -> SessionStatusResponse:
+    try:
+        record = session_manager.complete_next_checklist_item(session_id)
+    except ChecklistAdvanceNotAvailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"No active or pending checklist step to complete: {exc}",
+        ) from exc
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    return SessionStatusResponse(**record.to_dict())
+
+
+@router.post("/sessions/{session_id}/spatial-overlays", response_model=SessionStatusResponse)
+async def set_spatial_overlays(session_id: str, payload: SpatialOverlaySetRequest) -> SessionStatusResponse:
+    current = session_manager.get(session_id)
+    if current is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    overlay_payload = _sanitize_spatial_overlay_payload(payload.overlays)
+    record = session_manager.set_spatial_overlays(
+        session_id,
+        overlay_payload,
+        context_summary=payload.context_summary,
+        replace=payload.replace,
+        ttl_ms=payload.ttl_ms,
+        mode=payload.mode,
+    )
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+    delivered_to_agent = False
+    if current.agent_session_id:
+        delivered_to_agent = await vision_runtime.emit_spatial_tool_result(
+            agent_session_id=current.agent_session_id,
+            backend_session_id=session_id,
+            overlays=overlay_payload,
+            context_summary=payload.context_summary,
+            ttl_ms=payload.ttl_ms,
+            mode=payload.mode,
+            replace=payload.replace,
+            mirror_to_session=False,
+        )
+    session_manager.append_debug_event(
+        session_id,
+        "spatial_overlays_set",
+        {
+            "overlay_count": len(payload.overlays),
+            "replace": payload.replace,
+            "context_summary": payload.context_summary,
+            "delivered_to_agent": delivered_to_agent,
+            "ttl_ms": payload.ttl_ms,
+            "mode": payload.mode,
+        },
+    )
+    return SessionStatusResponse(**record.to_dict())
+
+
+@router.delete("/sessions/{session_id}/spatial-overlays", response_model=SessionStatusResponse)
+def clear_spatial_overlays(session_id: str) -> SessionStatusResponse:
+    record = session_manager.clear_spatial_overlays(session_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    session_manager.append_debug_event(
+        session_id,
+        "spatial_overlays_cleared",
+        {},
+    )
+    return SessionStatusResponse(**record.to_dict())
+
+
+@router.post("/sessions/{session_id}/checklist/items/{item_id}/complete", response_model=SessionStatusResponse)
+def complete_checklist_item(session_id: str, item_id: str) -> SessionStatusResponse:
+    try:
+        record = session_manager.complete_checklist_item(session_id, item_id)
+    except ChecklistItemNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist item not found: {exc}",
+        ) from exc
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    return SessionStatusResponse(**record.to_dict())
+
+
+@router.post("/sessions/{session_id}/checklist/items/{item_id}/status", response_model=SessionStatusResponse)
+def update_checklist_item_status(
+    session_id: str,
+    item_id: str,
+    payload: ChecklistStatusRequest,
+) -> SessionStatusResponse:
+    try:
+        record = session_manager.update_checklist_item_status(session_id, item_id, payload.status)
+    except ChecklistItemNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Checklist item not found: {exc}",
+        ) from exc
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    return SessionStatusResponse(**record.to_dict())
+
+
+@router.post(
+    "/sessions/{session_id}/tools/facial-droop/latest-frame",
+    response_model=FacialDroopToolResponse,
+)
+async def analyze_latest_session_frame_for_droop(
+    session_id: str,
+    settings: Settings = Depends(get_settings),
+) -> FacialDroopToolResponse:
+    record = session_manager.get(session_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    if record.latest_preview_frame is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Preview frame not available",
+        )
+    try:
+        prediction = await predict_session_latest_frame(session_id, settings)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    payload = prediction.to_dict()
+    session_manager.append_debug_event(
+        session_id,
+        "facial_droop_tool",
+        payload,
+    )
+    return FacialDroopToolResponse(
+        session_id=session_id,
+        source="facial_droop_api",
+        **payload,
+    )
 
 
 @router.websocket("/sessions/{session_id}/stream")
@@ -467,6 +735,13 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
                         )
                     await bridge.send_video_frame(blob_bytes)
                 elif bridge is not None and event_type == "text_message" and client_text:
+                    session_manager.mark_user_requested_guidance(session_id, client_text)
+                    outcome = search_and_optionally_activate_protocol(
+                        session_id,
+                        query=client_text,
+                        auto_activate=True,
+                        allow_replace_active=False,
+                    )
                     logger.info(
                         "stream text forwarded session_id=%s chars=%s text=%r",
                         session_id,
@@ -478,8 +753,25 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
                         "client_text",
                         {"text": client_text},
                     )
+                    if outcome.activated_title:
+                        await send_json_safe(
+                            {
+                                "serverContent": {
+                                    "outputTranscription": {
+                                        "text": _guidance_loaded_message(outcome.activated_title)
+                                    }
+                                }
+                            }
+                        )
                     await bridge.send_text(client_text)
                 elif event_type == "text_message" and client_text:
+                    session_manager.mark_user_requested_guidance(session_id, client_text)
+                    _outcome = search_and_optionally_activate_protocol(
+                        session_id,
+                        query=client_text,
+                        auto_activate=True,
+                        allow_replace_active=False,
+                    )
                     logger.info(
                         "stream text received without bridge session_id=%s chars=%s text=%r",
                         session_id,
@@ -499,12 +791,19 @@ async def stream_session(websocket: WebSocket, session_id: str) -> None:
                     )
 
                 if bridge is None and event_type == "text_message" and client_text:
+                    response_text = f"Backend adapter received: {client_text}"
+                    current_record = session_manager.get(session_id)
+                    if current_record is not None and current_record.incident_state.active_protocol_id:
+                        response_text = (
+                            f"{response_text}. Loaded guide: "
+                            f"{current_record.incident_state.active_protocol_id}."
+                        )
                     await send_json_safe(
                         {
                             "serverContent": {
                                 "inputTranscription": {"text": client_text},
                                 "outputTranscription": {
-                                    "text": f"Backend adapter received: {client_text}"
+                                    "text": response_text
                                 },
                                 "turnComplete": True,
                             }

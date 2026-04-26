@@ -10,6 +10,7 @@ from getstream import AsyncStream
 from getstream.models import UserRequest
 from vision_agents.core import AgentLauncher
 
+from .agent_events import SpatialToolResultEvent
 from .agent_factory import build_agent
 from .config import Settings
 
@@ -138,6 +139,46 @@ class VisionRuntime:
         if self._launcher is None:
             raise RuntimeError("Vision runtime is not started")
         return await self._launcher.get_session_info(call_id, session_id)
+
+    async def emit_spatial_tool_result(
+        self,
+        *,
+        agent_session_id: str,
+        backend_session_id: str,
+        overlays: list[dict[str, object]],
+        context_summary: str | None,
+        ttl_ms: int | None,
+        mode: str,
+        replace: bool,
+        mirror_to_session: bool = True,
+    ) -> bool:
+        if self._launcher is None:
+            return False
+
+        session = self._launcher.get_session(agent_session_id)
+        if session is None:
+            return False
+
+        session.agent.events.register(SpatialToolResultEvent)
+        session.agent.events.send(
+            SpatialToolResultEvent(
+                backend_session_id=backend_session_id,
+                overlays=overlays,
+                context_summary=context_summary,
+                ttl_ms=ttl_ms,
+                mode=mode,
+                replace=replace,
+                mirror_to_session=mirror_to_session,
+            )
+        )
+        await session.agent.events.wait(timeout=1.0)
+        logger.info(
+            "Emitted spatial tool result event agent_session_id=%s backend_session_id=%s overlays=%s",
+            agent_session_id,
+            backend_session_id,
+            len(overlays),
+        )
+        return True
 
     @staticmethod
     async def _join_call(agent: object, call_type: str, call_id: str, **kwargs: object) -> None:
