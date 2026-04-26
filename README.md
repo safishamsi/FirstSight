@@ -5,7 +5,7 @@
 A smart-glasses first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient — the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
 
 - **Facial droop** — detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
-- **Heart rate** — contactless rPPG from skin colour (CHROM/POS ensemble, no contact needed)
+- **Heart rate** — contactless rPPG from skin colour (YOLOR head detection + CHROM/POS ensemble, no contact needed)
 - **Voice guidance** — Gemini agent backed by JRCALC 2022 clinical guidelines RAG
 
 **Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
@@ -305,8 +305,8 @@ flowchart TD
 
 ### Heart rate (rPPG)
 
-1. MediaPipe detects faces each frame; a centroid tracker maintains identity across frames.
-2. A forehead ROI is cropped and Gaussian pyramid–downsampled.
+1. **YOLOR** detects heads/faces with a MediaPipe BlazeFace fallback for non-frontal angles (top-down crib cameras, people lying down). **DeepSort** tracks identities across frames so each person gets an independent BPM reading.
+2. A forehead ROI is cropped (top 40% of face height) — the flattest skin region with the strongest pulse signal and fewest expression artefacts.
 3. ROIs accumulate in a 150-frame rolling buffer (~15 s at 10 fps).
 4. When the buffer is full, CHROM and POS colour-space BVP estimators run and their spectra are averaged. The dominant peak in the physiological band (60–120 BPM) gives the heart rate.
 5. Frame-diff motion rejection discards blurry or high-motion frames before they enter the buffer.
