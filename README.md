@@ -209,9 +209,9 @@ Optional:
 | `mobile/CameraAccess/` | Current iOS smart-glasses / iPhone prototype |
 | `mobile/CameraAccessAndroid/` | Current Android smart-glasses / phone prototype |
 | `mobile/CameraAccess/server/` | Current WebRTC signaling server for the existing browser viewer |
-| `backend/` | New FastAPI + Vision Agents scaffold for the planned backend |
+| `backend/` | FastAPI + Vision Agents backend — face droop, heart rate, RAG |
 | `viewer/` | React debug dashboard for backend session state, transcripts, and processor signals |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Planned backend-first Python + React system |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Backend system architecture and data-flow design |
 
 Compatibility note: `samples/CameraAccessAndroid` is kept as a forwarding symlink for older Android Studio projects and scripts. The canonical Android app path is `mobile/CameraAccessAndroid/`.
 
@@ -225,38 +225,41 @@ The long-term product direction for this repo is a first-aid guidance system:
 - the wearer receives voice guidance
 - judges, developers, and operators can inspect the augmented video and agent traces in a debug dashboard
 
-The current mobile apps are still the working prototype surface. The backend-first system is the next build target.
+The backend-first system is built and running. The mobile apps can stream camera and audio to the backend for real-time CV and voice guidance, or connect directly to Gemini Live as a standalone fallback.
 
-## Current Prototype
+## Mobile Standalone Mode
 
-Put on your glasses, tap the AI button, and talk:
+When running without the backend, the iOS and Android apps connect directly to Gemini Live for voice and vision:
 
 - **"What am I looking at?"** -- Gemini sees through your glasses camera and describes the scene
-- **"Add milk to my shopping list"** -- delegates to OpenClaw, which adds it via your connected apps
-- **"Send a message to John saying I'll be late"** -- routes through OpenClaw to WhatsApp/Telegram/iMessage
-- **"Search for the best coffee shops nearby"** -- web search via OpenClaw, results spoken back
+- **"What do I do next?"** -- voice guidance from Gemini's built-in knowledge
 
 The glasses camera streams at ~1fps to Gemini for visual context, while audio flows bidirectionally in real-time.
 
-## Current Mobile Flow
+## Mobile Flow
 
 ```mermaid
 flowchart TD
     A("🕶️ Meta Ray-Ban Glasses\nor phone camera") -->|video frames + mic audio| B("📱 iOS / Android App")
-    B -->|"JPEG frames ~1fps\nPCM audio 16kHz"| C("✨ Gemini Live API\nWebSocket")
-    C -->|"PCM audio 24kHz"| D("🔊 Speaker")
-    C -->|tool calls| E("⚙️ OpenClaw Gateway\n56+ skills")
-    E --> F("web search · messaging\nsmart home · notes · reminders")
-    F -->|tool response| C
+    B -->|"JPEG frames @ 10fps\nWebSocket"| C("⚡ FastAPI Backend\n:8000")
+    C --> D["👁️ Face Droop\nMediaPipe + EfficientNet-B0"]
+    C --> E["❤️ Heart Rate\nrPPG CHROM/POS"]
+    D --> F["🤖 Gemini Agent\n+ JRCALC 2022 RAG"]
+    E --> F
+    F -->|"PCM audio 24kHz"| G("🔊 Glasses speaker")
+
+    B -.->|"standalone fallback\n(no backend)"| H("✨ Gemini Live API")
+    H -.->|"PCM audio 24kHz"| G
 ```
 
 **Key pieces:**
-- **Gemini Live** -- real-time voice + vision AI over WebSocket (native audio, not STT-first)
-- **OpenClaw** (optional) -- local gateway that gives Gemini access to 56+ tools and all your connected apps
-- **Phone mode** -- test the full pipeline using your phone camera instead of glasses
-- **WebRTC streaming** -- share your glasses POV live to a browser viewer
+- **FastAPI backend** -- runs CV processors and a Gemini voice agent with JRCALC clinical RAG
+- **Face droop** -- MediaPipe landmarks + EfficientNet-B0, asymmetry-gated
+- **Heart rate** -- contactless rPPG via CHROM/POS ensemble
+- **Phone / glasses mode** -- test with your phone camera instead of Meta Ray-Ban glasses
+- **Standalone fallback** -- iOS/Android can also connect directly to Gemini Live when no backend is available
 
-For the planned backend-first flow, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## How the Backend Works
 
