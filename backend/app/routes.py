@@ -149,6 +149,13 @@ def _sanitize_spatial_overlay_payload(
     return sanitized
 
 
+async def _prompt_guidance_if_bridge_active(session_id: str, *, reason: str) -> None:
+    try:
+        await vision_bridge_manager.prompt_guidance(session_id, reason=reason)
+    except Exception:
+        logger.exception("guidance prompt failed session_id=%s reason=%s", session_id, reason)
+
+
 def _missing_configuration(settings: Settings) -> list[str]:
     missing: list[str] = []
     if settings.realtime_provider == "gemini" and not settings.gemini_api_key:
@@ -411,7 +418,7 @@ def search_session_guides(session_id: str, payload: GuideSearchRequest) -> Guide
 
 
 @router.post("/sessions/{session_id}/checklist/set", response_model=SessionStatusResponse)
-def set_session_checklist(session_id: str, payload: ChecklistSetRequest) -> SessionStatusResponse:
+async def set_session_checklist(session_id: str, payload: ChecklistSetRequest) -> SessionStatusResponse:
     record = session_manager.get(session_id)
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
@@ -438,11 +445,12 @@ def set_session_checklist(session_id: str, payload: ChecklistSetRequest) -> Sess
             "matched_query": payload.matched_query,
         },
     )
+    await _prompt_guidance_if_bridge_active(session_id, reason="a playbook was loaded")
     return SessionStatusResponse(**updated.to_dict())
 
 
 @router.post("/sessions/{session_id}/checklist/next/complete", response_model=SessionStatusResponse)
-def complete_next_checklist_item(session_id: str) -> SessionStatusResponse:
+async def complete_next_checklist_item(session_id: str) -> SessionStatusResponse:
     try:
         record = session_manager.complete_next_checklist_item(session_id)
     except ChecklistAdvanceNotAvailableError as exc:
@@ -452,6 +460,7 @@ def complete_next_checklist_item(session_id: str) -> SessionStatusResponse:
         ) from exc
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    await _prompt_guidance_if_bridge_active(session_id, reason="the previous checklist step was completed")
     return SessionStatusResponse(**record.to_dict())
 
 
@@ -514,7 +523,7 @@ def clear_spatial_overlays(session_id: str) -> SessionStatusResponse:
 
 
 @router.post("/sessions/{session_id}/checklist/items/{item_id}/complete", response_model=SessionStatusResponse)
-def complete_checklist_item(session_id: str, item_id: str) -> SessionStatusResponse:
+async def complete_checklist_item(session_id: str, item_id: str) -> SessionStatusResponse:
     try:
         record = session_manager.complete_checklist_item(session_id, item_id)
     except ChecklistItemNotFoundError as exc:
@@ -524,11 +533,12 @@ def complete_checklist_item(session_id: str, item_id: str) -> SessionStatusRespo
         ) from exc
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    await _prompt_guidance_if_bridge_active(session_id, reason="the previous checklist step was completed")
     return SessionStatusResponse(**record.to_dict())
 
 
 @router.post("/sessions/{session_id}/checklist/items/{item_id}/status", response_model=SessionStatusResponse)
-def update_checklist_item_status(
+async def update_checklist_item_status(
     session_id: str,
     item_id: str,
     payload: ChecklistStatusRequest,
@@ -542,6 +552,8 @@ def update_checklist_item_status(
         ) from exc
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    if payload.status == "active":
+        await _prompt_guidance_if_bridge_active(session_id, reason="a checklist step was re-activated")
     return SessionStatusResponse(**record.to_dict())
 
 

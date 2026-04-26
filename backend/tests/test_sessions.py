@@ -241,6 +241,8 @@ def test_protocol_detail_returns_manual_and_checklist() -> None:
     assert payload["id"] == "stroke_fast"
     assert payload["manual_markdown"]
     assert payload["checklist_template"]
+    assert payload["checklist_template"][0]["tool_name"] == "facial_droop"
+    assert payload["checklist_template"][0]["requires_user_confirmation"] is True
 
 
 def test_guide_search_returns_ranked_hits_without_setting_checklist_by_default() -> None:
@@ -284,6 +286,8 @@ def test_checklist_set_overwrites_active_checklist() -> None:
     assert first_payload["incident_state"]["active_protocol_id"] == "stroke_fast"
     assert first_payload["incident_state"]["active_protocol_title"] == "Stroke FAST Check"
     assert first_payload["active_checklist"]
+    assert first_payload["active_checklist"][0]["tool_name"] == "facial_droop"
+    assert first_payload["active_checklist"][0]["speak_before"]
 
     second_set = client.post(
         f"/sessions/{session_id}/checklist/set",
@@ -295,6 +299,23 @@ def test_checklist_set_overwrites_active_checklist() -> None:
     assert second_payload["incident_state"]["active_protocol_title"] == "Adult CPR For Unresponsive Person"
     assert second_payload["active_checklist"]
     assert second_payload["active_checklist"][0]["source_protocol_id"] == "cpr_unresponsive_adult"
+
+
+def test_checklist_set_triggers_bridge_guidance_prompt() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    with patch("app.routes.vision_bridge_manager.prompt_guidance", new=AsyncMock(return_value=True)) as mocked_prompt:
+        response = client.post(
+            f"/sessions/{session_id}/checklist/set",
+            json={"protocol_id": "stroke_fast", "matched_query": "possible stroke with face droop"},
+        )
+
+    assert response.status_code == 200
+    mocked_prompt.assert_awaited_once_with(session_id, reason="a playbook was loaded")
 
 
 def test_guide_search_activates_checklist_when_requested() -> None:
@@ -659,6 +680,24 @@ def test_spatial_tool_result_custom_event_updates_session_state() -> None:
     import asyncio
 
     asyncio.run(scenario())
+
+
+def test_agent_context_includes_active_step_tooling() -> None:
+    client = TestClient(app)
+
+    create_response = client.post("/sessions")
+    assert create_response.status_code == 201
+    session_id = create_response.json()["session_id"]
+
+    set_response = client.post(
+        f"/sessions/{session_id}/checklist/set",
+        json={"protocol_id": "stroke_fast", "matched_query": "possible stroke with face droop"},
+    )
+    assert set_response.status_code == 200
+
+    context = session_manager.build_agent_context(session_id)
+    assert "Suggested tool: facial_droop." in context
+    assert "Wait for explicit human readiness before running the tool." in context
 
 
 def test_speech_guidance_search_does_not_replace_active_protocol() -> None:

@@ -20,6 +20,7 @@ from vision_agents.core.utils.video_track import QueuedVideoTrack
 
 from .agent_factory import _build_processors, build_realtime_llm
 from .config import Settings
+from .guidance_runtime import search_and_optionally_activate_protocol
 from .pipeline_bridge import FastWhisperPipelineBridge
 from .session_manager import session_manager
 
@@ -49,6 +50,8 @@ class VisionSessionBridge:
         self._audio_chunks_seen = 0
         self._video_frames_seen = 0
         self._text_messages_seen = 0
+        self._pending_guidance_query = ""
+        self._guidance_hint_task: asyncio.Task[None] | None = None
 
     @property
     def started(self) -> bool:
@@ -187,6 +190,15 @@ class VisionSessionBridge:
 
         await self._llm.simple_response(prompt)
 
+    async def prompt_guidance(self, reason: str) -> None:
+        if not self.started:
+            return
+        prompt = session_manager.build_step_guidance_prompt(self.session_id, reason=reason)
+        if not prompt:
+            return
+        logger.info("bridge prompt guidance session_id=%s reason=%s", self.session_id, reason)
+        await self._llm.simple_response(prompt)
+
     async def close(self) -> None:
         async with self._lock:
             if self._closed:
@@ -215,6 +227,10 @@ class VisionSessionBridge:
                     await close()
             self._processors.clear()
 
+            if self._guidance_hint_task is not None:
+                self._guidance_hint_task.cancel()
+                self._guidance_hint_task = None
+
             if self._llm is not None:
                 await self._llm.close()
                 self._llm = None
@@ -234,6 +250,9 @@ class VisionSessionBridge:
                 f"{processor.name} score={score} threshold={threshold} "
                 f"over_threshold={over_threshold}. {message}"
             )
+        guidance_context = session_manager.build_agent_context(self.session_id)
+        if guidance_context:
+            parts.append(f"Guidance context: {guidance_context}")
         return "\n".join(parts)
 
     async def _publish_processor_signals(self) -> None:
@@ -275,6 +294,11 @@ class VisionSessionBridge:
                 "input_transcription",
                 {"text": event.text},
             )
+            session_manager.mark_user_requested_guidance(self.session_id, event.text)
+            self._pending_guidance_query = event.text.strip()
+            if self._guidance_hint_task is not None:
+                self._guidance_hint_task.cancel()
+            self._guidance_hint_task = asyncio.create_task(self._debounced_protocol_hint())
             await self._safe_emit(
                 {
                     "serverContent": {
@@ -341,6 +365,30 @@ class VisionSessionBridge:
                 }
             )
 
+    async def _debounced_protocol_hint(self) -> None:
+        try:
+            await asyncio.sleep(1.2)
+        except asyncio.CancelledError:
+            return
+
+        query = self._pending_guidance_query.strip()
+        self._guidance_hint_task = None
+        if not query:
+            return
+
+        outcome = search_and_optionally_activate_protocol(
+            self.session_id,
+            query=query,
+            auto_activate=True,
+            allow_replace_active=False,
+        )
+        if outcome.activated_title:
+            session_manager.append_debug_event(
+                self.session_id,
+                "protocol_hint_from_speech",
+                {"title": outcome.activated_title, "text": query},
+            )
+
     async def _safe_emit(self, payload: dict[str, object]) -> None:
         if self._closed:
             return
@@ -392,6 +440,16 @@ class VisionBridgeManager:
     async def get(self, session_id: str) -> object | None:
         async with self._lock:
             return self._bridges.get(session_id)
+
+    async def prompt_guidance(self, session_id: str, *, reason: str) -> bool:
+        bridge = await self.get(session_id)
+        if bridge is None:
+            return False
+        prompt_guidance = getattr(bridge, "prompt_guidance", None)
+        if prompt_guidance is None:
+            return False
+        await prompt_guidance(reason)
+        return True
 
     async def close(self, session_id: str) -> None:
         async with self._lock:

@@ -23,6 +23,7 @@ from vision_agents.core.warmup import WarmupCache
 
 from .agent_factory import _build_processors, build_stt, build_text_llm, build_tts
 from .config import Settings
+from .guidance_runtime import search_and_optionally_activate_protocol
 from .session_manager import session_manager
 
 logger = logging.getLogger(__name__)
@@ -222,6 +223,15 @@ class FastWhisperPipelineBridge:
         )
         await self._respond_with_text(prompt)
 
+    async def prompt_guidance(self, reason: str) -> None:
+        if not self.started:
+            return
+        prompt = session_manager.build_step_guidance_prompt(self.session_id, reason=reason)
+        if not prompt:
+            return
+        logger.info("pipeline prompt guidance session_id=%s reason=%s", self.session_id, reason)
+        await self._respond_with_text(prompt)
+
     async def close(self) -> None:
         async with self._lock:
             if self._closed:
@@ -279,6 +289,9 @@ class FastWhisperPipelineBridge:
                 f"{processor.name} score={score} threshold={threshold} "
                 f"over_threshold={over_threshold}. {message}"
             )
+        guidance_context = session_manager.build_agent_context(self.session_id)
+        if guidance_context:
+            parts.append(f"Guidance context: {guidance_context}")
         return "\n".join(parts)
 
     async def _publish_processor_signals(self) -> None:
@@ -328,6 +341,19 @@ class FastWhisperPipelineBridge:
                 "input_transcription",
                 {"text": text},
             )
+            session_manager.mark_user_requested_guidance(self.session_id, text)
+            outcome = search_and_optionally_activate_protocol(
+                self.session_id,
+                query=text,
+                auto_activate=True,
+                allow_replace_active=False,
+            )
+            if outcome.activated_title:
+                session_manager.append_debug_event(
+                    self.session_id,
+                    "protocol_hint_from_speech",
+                    {"title": outcome.activated_title, "text": text},
+                )
             await self._safe_emit(
                 {
                     "serverContent": {
