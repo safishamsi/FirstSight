@@ -29,6 +29,14 @@ A React debug dashboard shows the live annotated frame, processor signal cards, 
 
 ## See It In Action
 
+<p align="center">
+  <img src="assets/demo-glasses-live.jpg" width="360" alt="FirstSight running live on Meta Ray-Ban glasses — Stroke FAST Check playbook with facial droop detection" />
+</p>
+
+<p align="center"><em>Live on Meta Ray-Ban glasses — Stroke FAST Check playbook running, facial droop detected (likelihood 0.98), Voice Agent active.</em></p>
+
+---
+
 Three frames from a live webcam session — same person, same room, models running in real time.
 
 | Normal face | Mild asymmetry | Exaggerated droop |
