@@ -27,6 +27,20 @@ Browser webcam, iPhone, Android phone, or Meta Ray-Ban glasses via the DAT SDK. 
 ### Give operators full visibility
 A React debug dashboard shows the live annotated frame, processor signal cards, Gemini transcript, and full event trace — so a judge, operator, or paramedic supervisor can see exactly what the system detected and why.
 
+## See It In Action
+
+Three frames from a live webcam session — same person, same room, models running in real time.
+
+| Normal face | Mild asymmetry | Exaggerated droop |
+|:-----------:|:--------------:|:-----------------:|
+| ![Normal](assets/demo-normal.jpg) | ![Alert](assets/demo-droop-alert.jpg) | ![Severe](assets/demo-droop-severe.jpg) |
+| Face Droop: **NORMAL** (0.00) | Face Droop: **ALERT** severe (0.68) | Face Droop: **ALERT** severe (0.86) |
+| Heart Rate: **87 BPM** | Heart Rate: **100 BPM** | Heart Rate: **70 BPM** (conf 0.65) |
+
+The system correctly reads 0.00 on a symmetric face and jumps to 0.86 on an exaggerated droop — with heart rate running contactlessly in parallel the whole time.
+
+---
+
 If you are joining this repo as a teammate, start here:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) for the backend data-flow design
