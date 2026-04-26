@@ -1,6 +1,6 @@
-# droopdetection
-
-![VisionClaw](assets/teaserimage.png)
+<p align="center">
+  <img src="assets/firstsight-logo.png" width="400" alt="FirstSight — When First Response Matters Most" />
+</p>
 
 A smart-glasses first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient — the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
 
@@ -11,8 +11,6 @@ A smart-glasses first-aid guidance system. Point the glasses (or your phone/lapt
 ![Cover](assets/cover.png)
 
 **Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
-
-> The sample apps and some assets still use the earlier internal name `VisionClaw` — treat that as legacy branding, not a separate project.
 
 ## What's Working Now
 
