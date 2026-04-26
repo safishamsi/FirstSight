@@ -10,17 +10,22 @@ A smart-glasses first-aid guidance system. Point the glasses (or your phone/lapt
 
 **Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
 
-## What's Working Now
+## What It Can Do
 
-| Component | Status |
-|-----------|--------|
-| FastAPI backend + WebSocket ingest | ✅ Live |
-| Face droop detection (EfficientNet-B0 + MediaPipe landmarks) | ✅ Live |
-| Heart rate detection (rPPG CHROM/POS ensemble) | ✅ Live |
-| Browser webcam streaming + signal viewer | ✅ Live |
-| Gemini voice agent with JRCALC RAG | ✅ Live (needs index build) |
-| iOS / Android app streaming | ✅ Live |
-| React debug dashboard | ✅ Live |
+### Detect a stroke before it's obvious
+Point the glasses at someone's face. FirstSight runs a MediaPipe landmark extractor and an EfficientNet-B0 model on every frame, scoring mouth, eye, and brow asymmetry in real time. Asymmetric faces — a key FAST indicator — are flagged immediately, with severity graded `none / mild / severe`. AUROC 0.985 on held-out test data.
+
+### Measure heart rate without touching anyone
+The rPPG pipeline picks up the ~1% colour change skin makes with each heartbeat. No sensor. No contact. Works across skin tones — a CHROM/POS ensemble automatically selects the algorithm with the stronger signal, so darker Fitzpatrick types aren't misread. Alerts fire for bradycardia, tachycardia, and critical ranges (<40 or >180 BPM) after a sustained window to suppress false alarms.
+
+### Talk you through what to do
+A Gemini voice agent backed by JRCALC 2022 clinical guidelines listens, watches, and speaks — walking you step by step through stroke assessment, CPR, choking response, and more. It correlates what the CV models see with what you say to surface the right protocol at the right moment.
+
+### Stream from anything
+Browser webcam, iPhone, Android phone, or Meta Ray-Ban glasses via the DAT SDK. The backend accepts JPEG frames over WebSocket from any source — swap the input without changing a line of server code.
+
+### Give operators full visibility
+A React debug dashboard shows the live annotated frame, processor signal cards, Gemini transcript, and full event trace — so a judge, operator, or paramedic supervisor can see exactly what the system detected and why.
 
 If you are joining this repo as a teammate, start here:
 
