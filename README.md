@@ -2,110 +2,96 @@
 
 ![VisionClaw](assets/teaserimage.png)
 
-A smart-glasses repo for realtime vision guidance. Today it contains the existing mobile prototypes; next it will grow a Python backend that augments realtime models with custom computer-vision processors, private RAG, and a React debug viewer.
+A smart-glasses first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient — the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
 
-The sample apps and some assets still use the earlier internal name `VisionClaw`. Treat that as legacy app branding inside this repo, not a separate project.
+- **Facial droop** — detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
+- **Heart rate** — contactless rPPG from skin colour (CHROM/POS ensemble, no contact needed)
+- **Voice guidance** — Gemini agent backed by JRCALC 2022 clinical guidelines RAG
 
 ![Cover](assets/cover.png)
 
-Built on [Meta Wearables DAT SDK](https://github.com/facebook/meta-wearables-dat-ios) (iOS) / [DAT Android SDK](https://github.com/facebook/meta-wearables-dat-android) (Android) + [Gemini Live API](https://ai.google.dev/gemini-api/docs/live) + [OpenClaw](https://github.com/nichochar/openclaw) (optional).
+**Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
 
-**Supported platforms:** iOS (iPhone) and Android (Pixel, Samsung, etc.)
+> The sample apps and some assets still use the earlier internal name `VisionClaw` — treat that as legacy branding, not a separate project.
 
-## Repo Status
+## What's Working Now
 
-- `Current`: iOS and Android sample apps stream glasses or phone camera input to Gemini Live, with optional OpenClaw tool calling and WebRTC viewer support.
-- `Planned`: a backend-first Python service using Vision Agents, configurable processors/tools/RAG, and a React debug dashboard for augmented video overlays.
-- `Canonical architecture note`: [ARCHITECTURE.md](ARCHITECTURE.md)
+| Component | Status |
+|-----------|--------|
+| FastAPI backend + WebSocket ingest | ✅ Live |
+| Face droop detection (EfficientNet-B0 + MediaPipe landmarks) | ✅ Live |
+| Heart rate detection (rPPG CHROM/POS ensemble) | ✅ Live |
+| Browser webcam streaming + signal viewer | ✅ Live |
+| Gemini voice agent with JRCALC RAG | ✅ Live (needs index build) |
+| iOS / Android app streaming | ✅ Live |
+| React debug dashboard | ✅ Live |
 
 If you are joining this repo as a teammate, start here:
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) for the planned backend/data-flow direction
-- [`mobile/CameraAccess/`](mobile/CameraAccess/) for the current iOS prototype
-- [`mobile/CameraAccessAndroid/`](mobile/CameraAccessAndroid/) for the current Android prototype
-- [`mobile/CameraAccess/CameraAccess/WebRTC/README.md`](mobile/CameraAccess/CameraAccess/WebRTC/README.md) for the current browser-viewer path
+- [ARCHITECTURE.md](ARCHITECTURE.md) for the backend data-flow design
+- [`backend/`](backend/) for the Python service
+- [`viewer/`](viewer/) for the React debug dashboard
+- [`mobile/CameraAccess/`](mobile/CameraAccess/) for the iOS prototype
+- [`mobile/CameraAccessAndroid/`](mobile/CameraAccessAndroid/) for the Android prototype
 
-## Teammate Quick Start
+## Quick Start (Browser Demo)
 
-The fastest way to get the current backend + viewer demo running is:
+The fastest way to see both models running — no mobile hardware required.
 
-### 1. Clone the repo
+**Prerequisites:** Python 3.11–3.13, Node 18+, a [Gemini API key](https://aistudio.google.com/apikey).
+
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/dtseng123/droopdetection.git
 cd droopdetection
+cp backend/.env.example backend/.env   # then set GEMINI_API_KEY
 ```
 
-### 2. Create local secrets files
+> **Model files required for droop detection.** The trained weights are not in the repo.
+> Place these files before starting the backend:
+> ```
+> model/droop_model.onnx          ← EfficientNet-B0 ONNX weights
+> model/face_landmarker.task      ← MediaPipe face landmarker (download from MediaPipe)
+> checkpoints/threshold.json      ← calibrated detection threshold
+> ```
+> Heart rate works out of the box — the BlazeFace model downloads automatically on first run.
+
+### 2. Start the backend
 
 ```bash
-cp .env.example .env
-cp backend/.env.example backend/.env
-cp mobile/CameraAccessAndroid/local.properties.example mobile/CameraAccessAndroid/local.properties
-cp mobile/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt.example mobile/CameraAccessAndroid/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/Secrets.kt
+cd backend
+make setup        # creates .venv, installs deps
+make dev          # starts uvicorn on :8000
 ```
 
-Minimum values to fill in:
-
-- `backend/.env`
-  - `GEMINI_API_KEY=...`
-- `mobile/CameraAccessAndroid/local.properties`
-  - `github_token=...`
-- `mobile/CameraAccessAndroid/.../Secrets.kt`
-  - `geminiAPIKey = "..."`
-
-If you are using Meta DAT in Developer Mode, set:
-
-- `mwdat_application_id=0`
-
-### 3. Start the backend
-
-```bash
-make backend-setup
-make backend-dev
-```
-
-Backend health check:
+Health check:
 
 ```bash
 curl http://127.0.0.1:8000/health
 ```
 
-### 4. Start the React debug viewer
+### 3. Start the viewer
 
 ```bash
-make viewer-install
-make viewer-dev
+cd viewer
+npm install
+npm run dev       # starts on http://localhost:5174
 ```
 
-Open:
+### 4. Stream your webcam
 
-```text
-http://localhost:5174
-```
+1. Open **http://localhost:5174**
+2. Go to the **STREAMS** tab
+3. Click **Start Camera** — your browser webcam streams to the backend at 10 fps
+4. A 10-second warmup bar appears while the processors initialise
+5. After warmup, two signal cards update in real time:
+   - **Face droop** — probability and severity, updated each frame
+   - **Heart rate** — BPM reading once the 150-frame rPPG buffer fills (~15 s)
 
-### 5. Run the Android app in backend mode
+### 5. Android / iOS (optional)
 
-Open:
-
-- `mobile/CameraAccessAndroid`
-
-In the app:
-
-1. Choose `Vision Agent Backend`
-2. Set the backend base URL
-   On a real phone, do not use `localhost`
-   Use something like `http://YOUR-MAC.local:8000` or your Mac's LAN IP
-3. Start streaming
-4. Open the viewer and pick the active session from the top-right session selector
-
-### 6. Expected demo path
-
-You should now have:
-
-- Android app streaming frames/audio to the Python backend
-- Vision Agent backend processing the session
-- React viewer showing the latest annotated frame, transcript HUD, processor signals, and event trace
+See the mobile quick-start sections below to stream from Meta Ray-Ban glasses or a phone camera instead of the browser webcam.
 
 Useful commands:
 
@@ -288,44 +274,90 @@ Gemini Live API (WebSocket)
 
 For the planned backend-first flow, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Planned Backend Direction
+## How the Backend Works
 
-The next system we are building from this repo root is:
-
-- a Python backend that receives live media from the mobile app
-- a Vision Agents runtime that can swap between Gemini and OpenAI realtime providers
-- configurable `processors` for face droop detection and future CV integrations
-- configurable `tools` for external model endpoints and utility functions
-- private `rag` sources for first-aid guidance
-- a React debug dashboard that renders augmented overlays, transcript/debug state, and retrieval/tool traces
-
-The intent is to keep the mobile app thin and move the augmentation logic into a backend that teammates can extend independently.
-
-Current backend status:
-
-- `POST /sessions` creates a local ingest session
-- `WS /sessions/{id}/stream` accepts Gemini-shaped streamed media events from the Android backend mode
-- `GET /sessions` and `GET /sessions/{id}` expose counters, transcripts, processor state, and retained debug events
-- the backend can bridge those streamed events into Gemini/OpenAI realtime providers
-- the current fast voice-return path uses transcript events plus Android TTS, not provider PCM playback yet
-
-### Backend Scaffold Quick Start
-
-```bash
-make backend-setup
-make backend-dev
-make viewer-install
-make viewer-dev
+```
+Browser / iOS / Android
+        │
+        │  JPEG frames @ 10 fps  (WebSocket)
+        ▼
+┌─────────────────────────────────────────┐
+│           FastAPI backend               │
+│                                         │
+│  ┌──────────────────────────────────┐   │
+│  │        VideoForwarder            │   │
+│  │  (fan-out to all processors)     │   │
+│  └────────┬──────────────┬──────────┘   │
+│           │              │              │
+│           ▼              ▼              │
+│  ┌──────────────┐ ┌────────────────┐   │
+│  │ FaceDroop    │ │ HeartRate      │   │
+│  │ Processor    │ │ Processor      │   │
+│  │              │ │                │   │
+│  │ MediaPipe    │ │ MediaPipe face │   │
+│  │ landmarks    │ │ detect         │   │
+│  │ + asymmetry  │ │ + CHROM/POS    │   │
+│  │ gate         │ │ rPPG ensemble  │   │
+│  │ + EfficientNet│ │ + centroid     │   │
+│  │ -B0 ONNX     │ │ tracker        │   │
+│  └──────┬───────┘ └───────┬────────┘   │
+│         │                 │             │
+│         └────────┬────────┘             │
+│                  ▼                      │
+│         processor_signals{}             │
+│         (polled by viewer)              │
+│                                         │
+│  ┌──────────────────────────────────┐   │
+│  │   Gemini voice agent             │   │
+│  │   + JRCALC RAG (optional)        │   │
+│  └──────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+        │
+        │  JSON polling  (REST)
+        ▼
+   React viewer (http://localhost:5174)
+   └── DEBUG tab: frame overlay, transcript, event trace
+   └── STREAMS tab: webcam feed + live signal cards
 ```
 
-Useful starting points:
+### Face droop detection
 
-- [backend/README.md](backend/README.md)
-- [backend/app/main.py](backend/app/main.py)
-- [backend/app/agent_factory.py](backend/app/agent_factory.py)
-- [backend/app/examples/basic_video_agent.py](backend/app/examples/basic_video_agent.py)
-- [backend/Makefile](backend/Makefile)
-- [viewer/README.md](viewer/README.md)
+1. Each frame is passed through MediaPipe face landmarker to extract 468 landmarks.
+2. Mouth/eye/brow asymmetry is computed from left–right landmark differences.
+3. **Asymmetry gate**: if the face is symmetric (combined score < 0.030) the CNN is skipped and the frame is logged as not drooping. This eliminates false positives on resting faces.
+4. If asymmetry exceeds the gate, an EfficientNet-B0 ONNX model runs on the forehead crop. The final probability is the CNN output scaled by the asymmetry weight.
+5. Severity bands: `none / mild / severe` based on distance from the calibrated threshold.
+
+### Heart rate (rPPG)
+
+1. MediaPipe detects faces each frame; a centroid tracker maintains identity across frames.
+2. A forehead ROI is cropped and Gaussian pyramid–downsampled.
+3. ROIs accumulate in a 150-frame rolling buffer (~15 s at 10 fps).
+4. When the buffer is full, CHROM and POS colour-space BVP estimators run and their spectra are averaged. The dominant peak in the physiological band (60–120 BPM) gives the heart rate.
+5. Frame-diff motion rejection discards blurry or high-motion frames before they enter the buffer.
+
+### API surfaces
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /sessions` | Create ingest session |
+| `WS /sessions/{id}/stream` | Stream JPEG frames + audio |
+| `GET /sessions` | List active sessions |
+| `GET /sessions/{id}` | Session state + processor signals |
+| `GET /sessions/{id}/frame` | Latest annotated preview JPEG |
+| `GET /health` | Liveness check |
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `backend/app/processors/face_droop.py` | Droop processor |
+| `backend/app/processors/droop_inference.py` | ONNX wrapper + asymmetry gate |
+| `backend/app/preprocess.py` | MediaPipe landmark extraction |
+| `backend/app/processors/heart_rate/processor.py` | rPPG processor |
+| `backend/app/processors/heart_rate/signal_processor.py` | CHROM/POS BVP estimators |
+| `backend/app/agent_factory.py` | Wires processors + LLM + RAG |
+| `viewer/src/CameraStream.tsx` | Webcam streaming + signal cards |
 
 ---
 
