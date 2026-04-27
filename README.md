@@ -16,7 +16,7 @@ A smart-glasses first-aid guidance system. Point the glasses (or your phone/lapt
   <img src="assets/award-unicornmafia.jpg" width="420" alt="FirstSight — 3rd place at UnicornMafia To The Americas Hackathon 2026" />
 </p>
 
-<p align="center"><strong>🏆 3rd Place — UnicornMafia "To The Americas" Hackathon 2026 · £1,000 prize</strong><br/>
+<p align="center"><strong>🏆 3rd Place — UnicornMafia "To The Americas" Hackathon 2026</strong><br/>
 Sponsored by Pydantic AI · Render · MUBIT · Lovable · Cognition · Expedite · The Residency</p>
 
 ---
