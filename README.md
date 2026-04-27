@@ -14,7 +14,7 @@ A Meta Ray-Ban first-aid guidance system. Point the glasses (or your phone/lapto
 
 - **Facial droop**: detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
 - **Heart rate**: contactless remote photoplethysmography (rPPG) from skin colour (YOLOR head detection + CHROM/POS ensemble, no contact needed)
-- **Voice guidance**: Gemini agent backed by JRCALC 2022 clinical guidelines RAG
+- **Voice guidance**: Gemini agent backed by JRCALC 2022 clinical guidelines GraphRAG
 
 **Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
 
@@ -249,7 +249,7 @@ Optional:
 | `mobile/CameraAccess/` | Current iOS Meta Ray-Ban / iPhone prototype |
 | `mobile/CameraAccessAndroid/` | Current Android Meta Ray-Ban / phone prototype |
 | `mobile/CameraAccess/server/` | Current WebRTC signaling server for the existing browser viewer |
-| `backend/` | FastAPI + Vision Agents backend - face droop, heart rate, RAG |
+| `backend/` | FastAPI + Vision Agents backend - face droop, heart rate, GraphRAG |
 | `viewer/` | React debug dashboard for backend session state, transcripts, and processor signals |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Backend system architecture and data-flow design |
 
@@ -261,7 +261,7 @@ The long-term product direction for this repo is a first-aid guidance system:
 
 - the glasses wearer streams live video/audio from their point of view
 - the backend runs custom vision models and other integrations through processors and tools
-- private medical / first-aid knowledge can be retrieved through RAG
+- private medical / first-aid knowledge can be retrieved through GraphRAG
 - the wearer receives voice guidance
 - judges, developers, and operators can inspect the augmented video and agent traces in a debug dashboard
 
@@ -284,7 +284,7 @@ flowchart TD
     B -->|"JPEG frames @ 10fps\nWebSocket"| C("⚡ FastAPI Backend\n:8000")
     C --> D["👁️ Face Droop\nMediaPipe + EfficientNet-B0"]
     C --> E["❤️ Heart Rate\nrPPG CHROM/POS"]
-    D --> F["🤖 Gemini Agent\n+ JRCALC 2022 RAG"]
+    D --> F["🤖 Gemini Agent\n+ JRCALC 2022 GraphRAG"]
     E --> F
     F -->|"PCM audio 24kHz"| G("🔊 Glasses speaker")
 
@@ -293,7 +293,7 @@ flowchart TD
 ```
 
 **Key pieces:**
-- **FastAPI backend** -- runs CV processors and a Gemini voice agent with JRCALC clinical RAG
+- **FastAPI backend** -- runs CV processors and a Gemini voice agent with JRCALC clinical GraphRAG
 - **Face droop** -- MediaPipe landmarks + EfficientNet-B0, asymmetry-gated
 - **Heart rate** -- contactless rPPG via CHROM/POS ensemble
 - **Phone / glasses mode** -- test with your phone camera instead of Meta Ray-Ban glasses
@@ -328,7 +328,7 @@ flowchart TD
         D3 --> SIG["processor_signals"]
         H4 --> SIG
 
-        SIG --> GEM["🤖 Gemini voice agent\n+ JRCALC 2022 RAG"]
+        SIG --> GEM["🤖 Gemini voice agent\n+ JRCALC 2022 GraphRAG"]
     end
 
     SIG -->|"JSON polling - REST"| VIEW["🖥️ React Viewer\nlocalhost:5174"]
@@ -464,14 +464,14 @@ The forehead is chosen as the region of interest for three reasons:
 | `backend/app/preprocess.py` | MediaPipe landmark extraction |
 | `backend/app/processors/heart_rate/processor.py` | rPPG processor |
 | `backend/app/processors/heart_rate/signal_processor.py` | CHROM/POS BVP estimators |
-| `backend/app/agent_factory.py` | Wires processors + LLM + RAG |
+| `backend/app/agent_factory.py` | Wires processors + LLM + GraphRAG |
 | `viewer/src/CameraStream.tsx` | Webcam streaming + signal cards |
 
 ---
 
-## JRCALC Clinical Guidelines RAG
+## JRCALC Clinical Guidelines GraphRAG
 
-The backend includes a Graph RAG pipeline that searches the JRCALC 2022 Clinical Practice Guidelines (the definitive UK paramedic reference) and surfaces relevant guidance in real time during a session.
+The backend includes a GraphRAG pipeline that searches the JRCALC 2022 Clinical Practice Guidelines (the definitive UK paramedic reference) and surfaces relevant guidance in real time during a session.
 
 ### How it works
 
