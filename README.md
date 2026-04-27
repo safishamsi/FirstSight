@@ -1,22 +1,22 @@
 <p align="center">
-  <img src="assets/firstsight-logo.png" width="400" alt="FirstSight — When First Response Matters Most" />
+  <img src="assets/firstsight-logo.png" width="400" alt="FirstSight - When First Response Matters Most" />
 </p>
 
-A smart-glasses first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient — the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
+A smart-glasses first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient - the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
 
-- **Facial droop** — detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
-- **Heart rate** — contactless remote photoplethysmography (rPPG) from skin colour (YOLOR head detection + CHROM/POS ensemble, no contact needed)
-- **Voice guidance** — Gemini agent backed by JRCALC 2022 clinical guidelines RAG
+- **Facial droop**: detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
+- **Heart rate**: contactless remote photoplethysmography (rPPG) from skin colour (YOLOR head detection + CHROM/POS ensemble, no contact needed)
+- **Voice guidance**: Gemini agent backed by JRCALC 2022 clinical guidelines RAG
 
 **Supported platforms:** browser webcam, iOS (iPhone), Android, Meta Ray-Ban glasses.
 
 ---
 
 <p align="center">
-  <img src="assets/award-unicornmafia.jpg" width="420" alt="FirstSight — 3rd place at UnicornMafia To The Americas Hackathon 2026" />
+  <img src="assets/award-unicornmafia.jpg" width="420" alt="FirstSight - 3rd place at UnicornMafia To The Americas Hackathon 2026" />
 </p>
 
-<p align="center"><strong>🏆 3rd Place — UnicornMafia "To The Americas" Hackathon 2026</strong><br/>
+<p align="center"><strong>🏆 3rd Place - UnicornMafia "To The Americas" Hackathon 2026</strong><br/>
 Sponsored by Pydantic AI · Render · MUBIT · Lovable · Cognition · Expedite · The Residency</p>
 
 ---
@@ -24,31 +24,31 @@ Sponsored by Pydantic AI · Render · MUBIT · Lovable · Cognition · Expedite 
 ## What It Can Do
 
 ### Detect a stroke before it's obvious
-Point the glasses at someone's face. FirstSight runs a MediaPipe landmark extractor and an EfficientNet-B0 model on every frame, scoring mouth, eye, and brow asymmetry in real time. Asymmetric faces — a key FAST indicator — are flagged immediately, with severity graded `none / mild / severe`. AUROC 0.985 on held-out test data.
+Point the glasses at someone's face. FirstSight runs a MediaPipe landmark extractor and an EfficientNet-B0 model on every frame, scoring mouth, eye, and brow asymmetry in real time. Asymmetric faces (a key FAST indicator) are flagged immediately, with severity graded `none / mild / severe`. AUROC 0.985 on held-out test data.
 
 ### Measure heart rate without touching anyone
-The remote photoplethysmography (rPPG) pipeline picks up the ~1% colour change skin makes with each heartbeat. No sensor. No contact. Works across skin tones — a CHROM/POS ensemble automatically selects the algorithm with the stronger signal, so darker Fitzpatrick types aren't misread. Alerts fire for bradycardia, tachycardia, and critical ranges (<40 or >180 BPM) after a sustained window to suppress false alarms.
+The remote photoplethysmography (rPPG) pipeline picks up the ~1% colour change skin makes with each heartbeat. No sensor. No contact. Works across skin tones - a CHROM/POS ensemble automatically selects the algorithm with the stronger signal, so darker Fitzpatrick types aren't misread. Alerts fire for bradycardia, tachycardia, and critical ranges (<40 or >180 BPM) after a sustained window to suppress false alarms.
 
 ### Talk you through what to do
-A Gemini voice agent backed by JRCALC 2022 clinical guidelines listens, watches, and speaks — walking you step by step through stroke assessment, CPR, choking response, and more. It correlates what the CV models see with what you say to surface the right protocol at the right moment.
+A Gemini voice agent backed by JRCALC 2022 clinical guidelines listens, watches, and speaks - walking you step by step through stroke assessment, CPR, choking response, and more. It correlates what the CV models see with what you say to surface the right protocol at the right moment.
 
 ### Stream from anything
-Browser webcam, iPhone, Android phone, or Meta Ray-Ban glasses via the DAT SDK. The backend accepts JPEG frames over WebSocket from any source — swap the input without changing a line of server code.
+Browser webcam, iPhone, Android phone, or Meta Ray-Ban glasses via the DAT SDK. The backend accepts JPEG frames over WebSocket from any source - swap the input without changing a line of server code.
 
 ### Give operators full visibility
-A React debug dashboard shows the live annotated frame, processor signal cards, Gemini transcript, and full event trace — so a judge, operator, or paramedic supervisor can see exactly what the system detected and why.
+A React debug dashboard shows the live annotated frame, processor signal cards, Gemini transcript, and full event trace - so a judge, operator, or paramedic supervisor can see exactly what the system detected and why.
 
 ## See It In Action
 
 <p align="center">
-  <img src="assets/demo-glasses-live.jpg" width="360" alt="FirstSight running live on Meta Ray-Ban glasses — Stroke FAST Check playbook with facial droop detection" />
+  <img src="assets/demo-glasses-live.jpg" width="360" alt="FirstSight running live on Meta Ray-Ban glasses - Stroke FAST Check playbook with facial droop detection" />
 </p>
 
-<p align="center"><em>Live on Meta Ray-Ban glasses — Stroke FAST Check playbook running, facial droop detected (likelihood 0.98), Voice Agent active.</em></p>
+<p align="center"><em>Live on Meta Ray-Ban glasses - Stroke FAST Check playbook running, facial droop detected (likelihood 0.98), Voice Agent active.</em></p>
 
 ---
 
-Three frames from a live webcam session — same person, same room, models running in real time.
+Three frames from a live webcam session - same person, same room, models running in real time.
 
 | Normal face | Mild asymmetry | Exaggerated droop |
 |:-----------:|:--------------:|:-----------------:|
@@ -56,7 +56,7 @@ Three frames from a live webcam session — same person, same room, models runni
 | Face Droop: **NORMAL** (0.00) | Face Droop: **ALERT** severe (0.68) | Face Droop: **ALERT** severe (0.86) |
 | Heart Rate: **87 BPM** | Heart Rate: **100 BPM** | Heart Rate: **70 BPM** (conf 0.65) |
 
-The system correctly reads 0.00 on a symmetric face and jumps to 0.86 on an exaggerated droop — with heart rate running contactlessly in parallel the whole time.
+The system correctly reads 0.00 on a symmetric face and jumps to 0.86 on an exaggerated droop - with heart rate running contactlessly in parallel the whole time.
 
 ---
 
@@ -70,7 +70,7 @@ If you are joining this repo as a teammate, start here:
 
 ## Quick Start (Browser Demo)
 
-The fastest way to see both models running — no mobile hardware required.
+The fastest way to see both models running - no mobile hardware required.
 
 **Prerequisites:** Python 3.11–3.13, Node 18+, a [Gemini API key](https://aistudio.google.com/apikey).
 
@@ -89,7 +89,7 @@ cp backend/.env.example backend/.env   # then set GEMINI_API_KEY
 > model/face_landmarker.task      ← MediaPipe face landmarker (download from MediaPipe)
 > checkpoints/threshold.json      ← calibrated detection threshold
 > ```
-> Heart rate works out of the box — the BlazeFace model downloads automatically on first run.
+> Heart rate works out of the box - the BlazeFace model downloads automatically on first run.
 
 ### 2. Start the backend
 
@@ -117,11 +117,11 @@ npm run dev       # starts on http://localhost:5174
 
 1. Open **http://localhost:5174**
 2. Go to the **STREAMS** tab
-3. Click **Start Camera** — your browser webcam streams to the backend at 10 fps
+3. Click **Start Camera**: your browser webcam streams to the backend at 10 fps
 4. A 10-second warmup bar appears while the processors initialise
 5. After warmup, two signal cards update in real time:
-   - **Face droop** — probability and severity, updated each frame
-   - **Heart rate** — BPM reading once the 150-frame rPPG buffer fills (~15 s)
+   - **Face droop**: probability and severity, updated each frame
+   - **Heart rate**: BPM reading once the 150-frame rPPG buffer fills (~15 s)
 
 ### 5. Android / iOS (optional)
 
@@ -241,7 +241,7 @@ Optional:
 | `mobile/CameraAccess/` | Current iOS smart-glasses / iPhone prototype |
 | `mobile/CameraAccessAndroid/` | Current Android smart-glasses / phone prototype |
 | `mobile/CameraAccess/server/` | Current WebRTC signaling server for the existing browser viewer |
-| `backend/` | FastAPI + Vision Agents backend — face droop, heart rate, RAG |
+| `backend/` | FastAPI + Vision Agents backend - face droop, heart rate, RAG |
 | `viewer/` | React debug dashboard for backend session state, transcripts, and processor signals |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Backend system architecture and data-flow design |
 
@@ -298,14 +298,14 @@ For architecture details, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ```mermaid
 flowchart TD
     IN("🕶️ Meta Glasses / 📱 Phone / 💻 Browser webcam")
-    IN -->|"JPEG frames @ 10fps — WebSocket"| VF
+    IN -->|"JPEG frames @ 10fps - WebSocket"| VF
 
     subgraph backend["⚡ FastAPI Backend"]
         VF["VideoForwarder\nfan-out to all processors"]
 
         subgraph droop["👁️ Face Droop Processor"]
             D1["MediaPipe\n468 landmarks"] --> D2["Asymmetry gate\nmouth · eye · brow"]
-            D2 -->|"score > 0.030"| D3["EfficientNet-B0\nONNX — droop probability"]
+            D2 -->|"score > 0.030"| D3["EfficientNet-B0\nONNX - droop probability"]
         end
 
         subgraph hr["❤️ Heart Rate Processor"]
@@ -323,7 +323,7 @@ flowchart TD
         SIG --> GEM["🤖 Gemini voice agent\n+ JRCALC 2022 RAG"]
     end
 
-    SIG -->|"JSON polling — REST"| VIEW["🖥️ React Viewer\nlocalhost:5174"]
+    SIG -->|"JSON polling - REST"| VIEW["🖥️ React Viewer\nlocalhost:5174"]
     GEM -->|"voice guidance"| SPK["🔊 Glasses speaker"]
 ```
 
@@ -338,7 +338,7 @@ flowchart TD
 ### Heart rate (rPPG)
 
 1. **YOLOR** detects heads/faces with a MediaPipe BlazeFace fallback for non-frontal angles (top-down crib cameras, people lying down). **DeepSort** tracks identities across frames so each person gets an independent BPM reading.
-2. A forehead ROI is cropped (top 40% of face height) — the flattest skin region with the strongest pulse signal and fewest expression artefacts.
+2. A forehead ROI is cropped (top 40% of face height) - the flattest skin region with the strongest pulse signal and fewest expression artefacts.
 3. ROIs accumulate in a 150-frame rolling buffer (~15 s at 10 fps).
 4. When the buffer is full, CHROM and POS colour-space BVP estimators run and their spectra are averaged. The dominant peak in the physiological band (60–120 BPM) gives the heart rate.
 5. Frame-diff motion rejection discards blurry or high-motion frames before they enter the buffer.
@@ -349,11 +349,11 @@ flowchart TD
 
 ### Why skin colour pulses with your heartbeat
 
-Every heartbeat pumps a bolus of blood into the capillary bed just beneath the skin. Oxyhaemoglobin (HbO₂) and deoxyhaemoglobin (Hb) absorb light at different wavelengths — HbO₂ absorbs strongly in the blue–green band (~420–580 nm) and transmits red, while Hb absorbs more broadly. As blood volume in the capillaries rises and falls with each cardiac cycle, the fraction of incident light absorbed changes accordingly.
+Every heartbeat pumps a bolus of blood into the capillary bed just beneath the skin. Oxyhaemoglobin (HbO₂) and deoxyhaemoglobin (Hb) absorb light at different wavelengths - HbO₂ absorbs strongly in the blue–green band (~420–580 nm) and transmits red, while Hb absorbs more broadly. As blood volume in the capillaries rises and falls with each cardiac cycle, the fraction of incident light absorbed changes accordingly.
 
 This is remote photoplethysmography (**rPPG**): the same physical principle as a pulse oximeter, but measured optically at a distance using ambient or screen light instead of an LED clipped to a finger.
 
-The change is tiny — roughly **0.5–2% of the mean pixel intensity** in the green channel, and even smaller in red and blue. The human visual system cannot perceive it, but a camera accumulating photons over millions of pixels can.
+The change is tiny - roughly **0.5–2% of the mean pixel intensity** in the green channel, and even smaller in red and blue. The human visual system cannot perceive it, but a camera accumulating photons over millions of pixels can.
 
 ### From pixels to blood volume pulse (BVP)
 
@@ -386,7 +386,7 @@ The BVP is extracted by rotating in the `(Xs, Ys)` plane to maximise the pulse-t
 BVP_CHROM = Xs − α·Ys,   α = std(Xs) / std(Ys)
 ```
 
-The rotation angle `α` is computed per window so it adapts to changing lighting. CHROM works best when the skin-tone prior (fixed coefficients `3, 2, 1.5`) holds — i.e. lighter Fitzpatrick types under broadband illumination.
+The rotation angle `α` is computed per window so it adapts to changing lighting. CHROM works best when the skin-tone prior (fixed coefficients `3, 2, 1.5`) holds - i.e. lighter Fitzpatrick types under broadband illumination.
 
 ### POS algorithm (Wang et al., 2017)
 
@@ -432,9 +432,9 @@ The BPM estimate is smoothed with an **exponential moving average (EMA)** with �
 
 The forehead is chosen as the region of interest for three reasons:
 
-1. **High capillary density** — the supraorbital and frontal branches of the ophthalmic artery run close to the surface, giving a stronger pulsatile signal than cheeks or the neck.
-2. **Low melanin variation** — the forehead has fewer active melanocytes than the cheeks in most individuals, reducing between-person variation in DC reflectance.
-3. **Flat geometry** — minimal specular highlights from curved surfaces (nose bridge, cheekbones) that corrupt colour measurements.
+1. **High capillary density**: the supraorbital and frontal branches of the ophthalmic artery run close to the surface, giving a stronger pulsatile signal than cheeks or the neck.
+2. **Low melanin variation**: the forehead has fewer active melanocytes than the cheeks in most individuals, reducing between-person variation in DC reflectance.
+3. **Flat geometry**: minimal specular highlights from curved surfaces (nose bridge, cheekbones) that corrupt colour measurements.
 
 ### API surfaces
 
@@ -463,23 +463,23 @@ The forehead is chosen as the region of interest for three reasons:
 
 ## JRCALC Clinical Guidelines RAG
 
-The backend includes a Graph RAG pipeline that searches the JRCALC 2022 Clinical Practice Guidelines — the definitive UK paramedic reference — and surfaces relevant guidance in real time during a session.
+The backend includes a Graph RAG pipeline that searches the JRCALC 2022 Clinical Practice Guidelines (the definitive UK paramedic reference) and surfaces relevant guidance in real time during a session.
 
 ### How it works
 
-When the glasses wearer speaks, the backend automatically searches the JRCALC document and injects matching guidance into the AI's context before it responds. No special command is needed — just ask naturally:
+When the glasses wearer speaks, the backend automatically searches the JRCALC document and injects matching guidance into the AI's context before it responds. No special command is needed - just ask naturally:
 
-- *"What's the adrenaline dose for cardiac arrest?"* — the AI receives the exact dose table row from the JRCALC drug doses section
-- *"Walk me through stroke assessment"* — the AI receives the FAST assessment protocol and management steps
-- *"Is the patient breathing?"* — semantic search finds airway and breathing management sections
+- *"What's the adrenaline dose for cardiac arrest?"* - the AI receives the exact dose table row from the JRCALC drug doses section
+- *"Walk me through stroke assessment"* - the AI receives the FAST assessment protocol and management steps
+- *"Is the patient breathing?"* - semantic search finds airway and breathing management sections
 
-The search uses a knowledge graph (NetworkX) on top of a FAISS vector index. Each piece of the document — chapters, sections, paragraphs, and table rows — is a node. When a query matches a node, the graph traversal also pulls in related nodes: the parent section for context, sibling chunks, and every other place the same drug or condition is mentioned across different chapters. This means a query for "adrenaline" returns the cardiac arrest dose, the anaphylaxis dose, and the paediatric dose in a single retrieval pass.
+The search uses a knowledge graph (NetworkX) on top of a FAISS vector index. Each piece of the document (chapters, sections, paragraphs, and table rows) is a node. When a query matches a node, the graph traversal also pulls in related nodes: the parent section for context, sibling chunks, and every other place the same drug or condition is mentioned across different chapters. This means a query for "adrenaline" returns the cardiac arrest dose, the anaphylaxis dose, and the paediatric dose in a single retrieval pass.
 
 The retrieved guidance is prepended to the AI's prompt, labelled `Retrieved clinical guidance (JRCALC 2022)`, so the AI can cite and reason over it while also using what it sees through the camera.
 
 ### Setup
 
-**Step 1 — Get the EPUB**
+**Step 1 - Get the EPUB**
 
 Place the JRCALC 2022 EPUB at:
 
@@ -487,7 +487,7 @@ Place the JRCALC 2022 EPUB at:
 data/jrcalc-clinical-guidelines-2022.epub
 ```
 
-**Step 2 — Build the index** (one-time, ~5–8 minutes)
+**Step 2 - Build the index** (one-time, ~5–8 minutes)
 
 ```bash
 cd backend
@@ -518,7 +518,7 @@ Building FAISS index (embedding via Google text-embedding-004)...
 Done. Total time: 299.8s
 ```
 
-**Step 3 — Enable in `.env`**
+**Step 3 - Enable in `.env`**
 
 Add to `backend/.env`:
 
@@ -534,7 +534,7 @@ RAG_MAX_CONTEXT_TOKENS=1200  # max tokens of guidance injected per turn (default
 RAG_INDEX_DIR=rag_index      # path to the built index (default: rag_index)
 ```
 
-**Step 4 — Restart the backend**
+**Step 4 - Restart the backend**
 
 ```bash
 make backend-restart
@@ -553,15 +553,15 @@ The JRCALC document is indexed at four levels of granularity:
 | Node type | Example |
 |---|---|
 | Chapter | "Cardiac Arrest" |
-| Section | "Management — Adult" |
+| Section | "Management - Adult" |
 | Paragraph | "CPR should be initiated immediately..." |
 | Table row | `Drug: Adrenaline | Dose: 1mg | Route: IV/IO | Notes: Every 3-5 min` |
 
-Drug and condition names become entity hub nodes. A query for "adrenaline" finds the entity hub and follows its connections to every dose table row across all conditions — cardiac arrest, anaphylaxis, bradycardia — in one retrieval pass.
+Drug and condition names become entity hub nodes. A query for "adrenaline" finds the entity hub and follows its connections to every dose table row across all conditions (cardiac arrest, anaphylaxis, bradycardia) in one retrieval pass.
 
 ### Disabling
 
-Set `RAG_ENABLED=false` (or omit it entirely — it defaults to `false`). The rest of the pipeline is completely unaffected.
+Set `RAG_ENABLED=false` (or omit it entirely - it defaults to `false`). The rest of the pipeline is completely unaffected.
 
 ---
 
