@@ -291,7 +291,7 @@ flowchart TD
 - **Phone / glasses mode** -- test with your phone camera instead of Meta Ray-Ban glasses
 - **Standalone fallback** -- iOS/Android can also connect directly to Gemini Live when no backend is available
 
-For architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For architecture details, see [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## How the Backend Works
 
@@ -342,6 +342,99 @@ flowchart TD
 3. ROIs accumulate in a 150-frame rolling buffer (~15 s at 10 fps).
 4. When the buffer is full, CHROM and POS colour-space BVP estimators run and their spectra are averaged. The dominant peak in the physiological band (60–120 BPM) gives the heart rate.
 5. Frame-diff motion rejection discards blurry or high-motion frames before they enter the buffer.
+
+---
+
+## Physics of Contactless Heart Rate (rPPG)
+
+### Why skin colour pulses with your heartbeat
+
+Every heartbeat pumps a bolus of blood into the capillary bed just beneath the skin. Oxyhaemoglobin (HbO₂) and deoxyhaemoglobin (Hb) absorb light at different wavelengths — HbO₂ absorbs strongly in the blue–green band (~420–580 nm) and transmits red, while Hb absorbs more broadly. As blood volume in the capillaries rises and falls with each cardiac cycle, the fraction of incident light absorbed changes accordingly.
+
+This is remote photoplethysmography (**rPPG**): the same physical principle as a pulse oximeter, but measured optically at a distance using ambient or screen light instead of an LED clipped to a finger.
+
+The change is tiny — roughly **0.5–2% of the mean pixel intensity** in the green channel, and even smaller in red and blue. The human visual system cannot perceive it, but a camera accumulating photons over millions of pixels can.
+
+### From pixels to blood volume pulse (BVP)
+
+Let `R(t)`, `G(t)`, `B(t)` be the spatially-averaged pixel values over the forehead ROI at frame `t`. Each channel carries:
+
+```
+C(t) = C₀ · [ 1 + α_C · p(t) ] · l(t)
+```
+
+where `C₀` is the DC skin reflectance, `α_C` is the haemoglobin absorption coefficient in that channel, `p(t)` is the normalised blood volume pulse, and `l(t)` is multiplicative illumination drift. The goal is to recover `p(t)` while cancelling `l(t)`.
+
+### CHROM algorithm (de Haan & Jeanne, 2013)
+
+CHROM exploits the fact that illumination changes project along the skin-tone direction in RGB space. Normalise each channel by its mean to remove DC:
+
+```
+Rn = R/μR,  Gn = G/μG,  Bn = B/μB
+```
+
+Two chrominance signals are formed that are orthogonal to the illumination direction:
+
+```
+Xs = 3·Rn − 2·Gn
+Ys = 1.5·Rn + Gn − 1.5·Bn
+```
+
+The BVP is extracted by rotating in the `(Xs, Ys)` plane to maximise the pulse-to-noise ratio:
+
+```
+BVP_CHROM = Xs − α·Ys,   α = std(Xs) / std(Ys)
+```
+
+The rotation angle `α` is computed per window so it adapts to changing lighting. CHROM works best when the skin-tone prior (fixed coefficients `3, 2, 1.5`) holds — i.e. lighter Fitzpatrick types under broadband illumination.
+
+### POS algorithm (Wang et al., 2017)
+
+POS makes no fixed assumption about skin tone. Instead it estimates the skin-colour vector directly from the data, then projects the signal onto the **plane orthogonal to it** where pulse lives.
+
+Build the `3×T` matrix `C` of normalised RGB traces. Compute the unit skin-colour vector `u` (the dominant PCA direction, or the temporal mean). Project:
+
+```
+P = (I − u·uᵀ) · C
+```
+
+The two rows of `P` are orthogonal colour channels free of illumination. The BVP is:
+
+```
+BVP_POS = P[0] + (std(P[0]) / std(P[1])) · P[1]
+```
+
+Because `u` is estimated from the actual pixels rather than a population prior, POS self-calibrates to darker skin tones, coloured lighting, and non-standard cameras where CHROM's fixed coefficients would misfire.
+
+### CHROM/POS ensemble and SNR gating
+
+Both estimators run on every window. For each, the power spectrum in the physiological band (0.67–3.33 Hz, i.e. 40–200 BPM) is computed via zero-padded FFT. The **signal-to-noise ratio** is:
+
+```
+SNR = peak_power / (band_power − peak_power)
+```
+
+The estimator with the higher SNR is selected for that window. On lighter skin under stable lighting, CHROM typically wins. On darker skin or under LED flicker, POS wins. Confidence reported to the API is `SNR / (SNR + 1)` scaled to [0, 1].
+
+### FFT → BPM
+
+The BVP signal `p(t)` sampled at `fps` Hz is zero-padded to 4× its length before FFT to increase frequency resolution. The peak in the physiological band is found, and:
+
+```
+BPM = peak_frequency_Hz × 60
+```
+
+A harmonic-weighted search is used: the algorithm checks the fundamental and its first two harmonics (`f`, `2f`, `3f`), preferring a candidate whose harmonics also show power, reducing octave errors.
+
+The BPM estimate is smoothed with an **exponential moving average (EMA)** with α = 0.2 to suppress frame-to-frame noise, and a sustained-consistency gate (≥1 s of readings within ±5 BPM) is required before alerts fire.
+
+### Why the forehead
+
+The forehead is chosen as the region of interest for three reasons:
+
+1. **High capillary density** — the supraorbital and frontal branches of the ophthalmic artery run close to the surface, giving a stronger pulsatile signal than cheeks or the neck.
+2. **Low melanin variation** — the forehead has fewer active melanocytes than the cheeks in most individuals, reducing between-person variation in DC reflectance.
+3. **Flat geometry** — minimal specular highlights from curved surfaces (nose bridge, cheekbones) that corrupt colour measurements.
 
 ### API surfaces
 
