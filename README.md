@@ -77,8 +77,8 @@ The fastest way to see both models running — no mobile hardware required.
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/dtseng123/droopdetection.git
-cd droopdetection
+git clone https://github.com/safishamsi/FirstSight.git
+cd FirstSight
 cp backend/.env.example backend/.env   # then set GEMINI_API_KEY
 ```
 
@@ -245,7 +245,7 @@ Optional:
 | `viewer/` | React debug dashboard for backend session state, transcripts, and processor signals |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Backend system architecture and data-flow design |
 
-Compatibility note: `samples/CameraAccessAndroid` is kept as a forwarding symlink for older Android Studio projects and scripts. The canonical Android app path is `mobile/CameraAccessAndroid/`.
+The canonical Android app path is `mobile/CameraAccessAndroid/`.
 
 ## Product Direction
 
@@ -570,8 +570,8 @@ Set `RAG_ENABLED=false` (or omit it entirely — it defaults to `false`). The re
 ### 1. Clone and open
 
 ```bash
-git clone https://github.com/dtseng123/droopdetection.git
-cd droopdetection/mobile/CameraAccess
+git clone https://github.com/safishamsi/FirstSight.git
+cd FirstSight/mobile/CameraAccess
 open CameraAccess.xcodeproj
 ```
 
@@ -619,7 +619,7 @@ Then in the iOS app:
 ### 1. Clone and open
 
 ```bash
-git clone https://github.com/dtseng123/droopdetection.git
+git clone https://github.com/safishamsi/FirstSight.git
 ```
 
 Open `mobile/CameraAccessAndroid/` in Android Studio.

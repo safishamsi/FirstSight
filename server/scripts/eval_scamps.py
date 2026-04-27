@@ -7,7 +7,7 @@ SCAMPS synthetic faces have subtle rPPG signals that are best extracted
 via direct spatial mean before the temporal FFT.
 
 Usage:
-    python3 scripts/eval_scamps.py
+    python3 server/scripts/eval_scamps.py
 """
 import sys
 import numpy as np
@@ -16,9 +16,10 @@ import pandas as pd
 from pathlib import Path
 from scipy.signal import butter, filtfilt
 
-BASE = Path(__file__).parent.parent
-sys.path.insert(0, str(BASE / "vendor"))
-sys.path.insert(0, str(BASE))
+_SERVER = Path(__file__).parent.parent
+_ROOT = _SERVER.parent
+sys.path.insert(0, str(_SERVER / "vendor"))
+sys.path.insert(0, str(_ROOT))
 
 from server.signal_processor import SignalProcessor, CONF_THRESHOLD
 

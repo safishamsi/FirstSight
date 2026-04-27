@@ -23,9 +23,10 @@ import mediapipe as mp
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision as mp_vision
 
-BASE = Path(__file__).parent.parent
-sys.path.insert(0, str(BASE / "vendor"))
-sys.path.insert(0, str(BASE))
+_SERVER = Path(__file__).parent.parent
+_ROOT = _SERVER.parent
+sys.path.insert(0, str(_SERVER / "vendor"))
+sys.path.insert(0, str(_ROOT))
 
 from server.signal_processor import CONF_THRESHOLD
 

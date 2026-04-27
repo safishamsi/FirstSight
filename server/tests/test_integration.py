@@ -11,7 +11,7 @@ from server.detector import HeadDetector
 from server.tracker import HeadTracker
 from server.pipeline import HeartRatePipeline, BUFFER_SIZE
 
-WEIGHTS_PATH = BASE / "weights/yolor_head.pt"
+WEIGHTS_PATH = BASE.parent / "weights/yolor_head.pt"
 DEMO_DIR = Path("/home/safi/heart_rate_detection/demo")
 
 

@@ -2,15 +2,16 @@
 Quick test script — run any video through the full pipeline and print BPM readings.
 
 Usage:
-    python3 scripts/run_video.py <video_path> [--fps 60] [--mode adult|neonate]
+    python3 server/scripts/run_video.py <video_path> [--fps 60] [--mode adult|neonate]
 """
 import sys
 import argparse
 from pathlib import Path
 
-BASE = Path(__file__).parent.parent
-sys.path.insert(0, str(BASE / "vendor"))
-sys.path.insert(0, str(BASE))
+_SERVER = Path(__file__).parent.parent   # server/
+_ROOT = _SERVER.parent                   # project root
+sys.path.insert(0, str(_SERVER / "vendor"))
+sys.path.insert(0, str(_ROOT))
 
 import cv2
 from server.detector import HeadDetector
@@ -32,11 +33,11 @@ def main():
     print(f"Frames: {total} @ {fps:.1f}fps = {total/fps:.1f}s | mode: {args.mode}")
 
     detector = HeadDetector(
-        cfg_path=str(BASE / "config/yolor_p6_head.cfg"),
-        weights_path=str(BASE / "weights/yolor_head.pt"),
+        cfg_path=str(_SERVER / "config/yolor_p6_head.cfg"),
+        weights_path=str(_ROOT / "weights/yolor_head.pt"),
         device="cpu",
     )
-    tracker = HeadTracker(config_path=str(BASE / "config/deep_sort.yaml"))
+    tracker = HeadTracker(config_path=str(_SERVER / "config/deep_sort.yaml"))
     pipeline = HeartRatePipeline(detector=detector, tracker=tracker, fps=fps, mode=args.mode)
 
     readings = []
