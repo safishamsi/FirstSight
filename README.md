@@ -2,7 +2,7 @@
   <img src="assets/firstsight-logo.png" width="400" alt="FirstSight - When First Response Matters Most" />
 </p>
 
-A smart-glasses first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient - the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
+A Meta Ray-Ban first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient - the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
 
 - **Facial droop**: detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
 - **Heart rate**: contactless remote photoplethysmography (rPPG) from skin colour (YOLOR head detection + CHROM/POS ensemble, no contact needed)
@@ -238,8 +238,8 @@ Optional:
 
 | Path | Purpose |
 |------|---------|
-| `mobile/CameraAccess/` | Current iOS smart-glasses / iPhone prototype |
-| `mobile/CameraAccessAndroid/` | Current Android smart-glasses / phone prototype |
+| `mobile/CameraAccess/` | Current iOS Meta Ray-Ban / iPhone prototype |
+| `mobile/CameraAccessAndroid/` | Current Android Meta Ray-Ban / phone prototype |
 | `mobile/CameraAccess/server/` | Current WebRTC signaling server for the existing browser viewer |
 | `backend/` | FastAPI + Vision Agents backend - face droop, heart rate, RAG |
 | `viewer/` | React debug dashboard for backend session state, transcripts, and processor signals |
