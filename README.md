@@ -2,6 +2,14 @@
   <img src="assets/firstsight-logo.png" width="400" alt="FirstSight - When First Response Matters Most" />
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/platform-Meta%20Ray--Ban-black" alt="Meta Ray-Ban" />
+  <img src="https://img.shields.io/badge/release-v1.0.0-green" alt="v1.0.0" />
+  <img src="https://img.shields.io/badge/hackathon-3rd%20place%20UnicornMafia%202026-orange" alt="3rd place UnicornMafia 2026" />
+</p>
+
 A Meta Ray-Ban first-aid guidance system. Point the glasses (or your phone/laptop camera) at a patient - the backend runs two real-time CV models and an AI voice agent that talks you through what it sees:
 
 - **Facial droop**: detects stroke-related asymmetry using MediaPipe landmarks + EfficientNet-B0
